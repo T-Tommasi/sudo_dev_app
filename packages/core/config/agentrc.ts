@@ -1,5 +1,5 @@
-import { z } from "npm:zod@^3.22.0";
-import { parse } from "npm:yaml@^2.8.0";
+import { z } from "zod";
+import { parse } from "yaml";
 
 /**
  * Zod schema for .agentrc.yml configuration file.

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS action_traces (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
     checkpoint_id TEXT,
+    trace_id TEXT NOT NULL,
     action_type TEXT NOT NULL,
     action_input TEXT NOT NULL,
     action_output TEXT,
@@ -42,3 +43,5 @@ CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON checkpoints(session_id);
 CREATE INDEX IF NOT EXISTS idx_action_traces_session ON action_traces(session_id);
 CREATE INDEX IF NOT EXISTS idx_action_traces_checkpoint ON action_traces(checkpoint_id);
+CREATE INDEX IF NOT EXISTS idx_action_traces_type ON action_traces(action_type);
+CREATE INDEX IF NOT EXISTS idx_action_traces_trace_id ON action_traces(trace_id);

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**opencode-glass** is an observability-focused AI agent platform built on Deno. The platform implements a "Glass-Box" philosophy — every agent action, decision, tool execution, and state transition is visible, traceable, and debuggable. There are no black-box AI behaviors.
+**code-glass** is an observability-focused AI agent platform built on Deno. The platform implements a "Glass-Box" philosophy — every agent action, decision, tool execution, and state transition is visible, traceable, and debuggable. There are no black-box AI behaviors.
 
 The platform is designed for teams who need:
 - Full audit trails of agentic workflows

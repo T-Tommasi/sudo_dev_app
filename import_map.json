@@ -1,13 +1,18 @@
 {
   "imports": {
     "ai": "npm:ai@^3.0.0",
-    "@ai-sdk/openai": "npm:@ai-sdk/openai@^0.0.0",
-    "@ai-sdk/anthropic": "npm:@ai-sdk/anthropic@^0.0.0",
+    "@ai-sdk/openai": "npm:@ai-sdk/openai@^3.0.0",
+    "@ai-sdk/anthropic": "npm:@ai-sdk/anthropic@^3.0.0",
     "openai": "npm:openai@^4.0.0",
-    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.0.0",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.32.0",
     "sqlite": "jsr:@db/sqlite@^0.11.0",
     "@std/": "jsr:@std/",
     "zod": "npm:zod@^3.22.0",
-    "yaml": "jsr:@std/yaml@^0.211.0"
+    "yaml": "jsr:@std/yaml@^0.211.0",
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.9.0",
+    "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.25.0",
+    "@opentelemetry/resources": "npm:@opentelemetry/resources@^1.25.0",
+    "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.25.0",
+    "@opentelemetry/core": "npm:@opentelemetry/core@^1.25.0"
   }
 }

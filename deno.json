@@ -6,6 +6,7 @@
   ],
   "importMap": "import_map.json",
   "tasks": {
+    "check": "deno check **/*.ts",
     "test": "deno test --allow-all",
     "lint": "deno lint",
     "fmt": "deno fmt"

@@ -198,6 +198,28 @@ Deno.test({
     assertEquals(indexNames.includes("idx_checkpoints_session"), true, "checkpoints session index should exist");
     assertEquals(indexNames.includes("idx_action_traces_session"), true, "action_traces session index should exist");
     assertEquals(indexNames.includes("idx_action_traces_checkpoint"), true, "action_traces checkpoint index should exist");
+    assertEquals(indexNames.includes("idx_action_traces_trace_id"), true, "action_traces trace_id index should exist");
+
+    db.close();
+  },
+});
+
+Deno.test({
+  name: "action_traces table has trace_id column",
+  fn: () => {
+    const db = new Database(":memory:");
+
+    const schemaPath = resolve("./packages/core/state/schema.sql");
+    const schema = Deno.readTextFileSync(schemaPath);
+    db.exec(schema);
+
+    // Get column info for action_traces table
+    const columns = db.prepare("PRAGMA table_info(action_traces)").all() as {
+      name: string;
+    }[];
+
+    const columnNames = columns.map((c) => c.name);
+    assertEquals(columnNames.includes("trace_id"), true, "trace_id column should exist in action_traces");
 
     db.close();
   },
