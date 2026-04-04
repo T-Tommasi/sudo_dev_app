@@ -97,7 +97,7 @@ export class AsyncIterableSpanExporter implements SpanExporter {
       cancel: () => {
         this._isShutdown = true;
       },
-    });
+    }, { highWaterMark: this._highWaterMark });
   }
 
   export(
@@ -141,27 +141,7 @@ export class AsyncIterableSpanExporter implements SpanExporter {
     if (this._isShutdown) {
       return;
     }
-
-    const reader = this._stream.getReader();
-    try {
-      while (true) {
-        if (this._isShutdown) {
-          break;
-        }
-
-        const result = await reader.read();
-        if (result.done) {
-          break;
-        }
-        yield result.value;
-      }
-    } finally {
-      try {
-        reader.releaseLock();
-      } catch {
-        // Ignore errors during cleanup
-      }
-    }
+    yield* this._stream;
   }
 
   /**
@@ -190,9 +170,28 @@ type HrTime = readonly [number, number];
  * HrTime is [seconds, nanoseconds] since Unix epoch
  */
 function otelTimestampToISO(timestamp: HrTime): string {
+  // Handle invalid or missing timestamp
+  if (!timestamp || timestamp.length !== 2) {
+    return new Date().toISOString();
+  }
+
+  const [seconds, nanoseconds] = timestamp;
+
+  // Handle NaN or invalid numbers
+  if (!Number.isFinite(seconds) || !Number.isFinite(nanoseconds)) {
+    return new Date().toISOString();
+  }
+
   // Convert seconds + nanoseconds to milliseconds
-  const ms = timestamp[0] * 1_000 + timestamp[1] / 1_000_000;
-  return new Date(ms).toISOString();
+  const ms = seconds * 1_000 + nanoseconds / 1_000_000;
+
+  // Validate the resulting timestamp
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString();
+  }
+
+  return date.toISOString();
 }
 
 /**
@@ -387,8 +386,8 @@ export function deleteActionTracesBySession(sessionId: string): number {
 
   try {
     const result = stmt.run(sessionId);
-    // SQLite driver returns { changes: number } for run operations
-    const changes = (result as unknown as { changes: () => number }).changes();
+    // SQLite driver returns the number of changes directly for run operations
+    const changes = typeof result === "number" ? result : 0;
     return changes;
   } finally {
     stmt.finalize();

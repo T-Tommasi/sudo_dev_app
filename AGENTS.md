@@ -450,7 +450,8 @@ limits:
 
 | Version | Description |
 |---------|-------------|
-| 0.1.0 | Phase 0.1 — Core runtime configuration, SDK infrastructure, SQLite checkpointing |
+| 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |
+| 0.0.1 | Phase 0.1 — Core runtime configuration, SDK infrastructure |
 
 ---
 

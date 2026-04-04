@@ -2,7 +2,8 @@
  * Unit tests for checkpoint management
  */
 
-import { assertEquals, assertExists, assertThrows } from "jsr:@std/assert@0.217.0";
+import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { resolve } from "@std/path";
 import { getDb, resetDb } from "./db.ts";
 import {
   createCheckpoint,
@@ -16,7 +17,7 @@ import {
 } from "./checkpoint.ts";
 
 // Test database path
-const TEST_DB_PATH = "./data/test_checkpoint.db";
+const TEST_DB_PATH = "test_checkpoint.db";
 
 /**
  * Setup test database and session
@@ -41,12 +42,13 @@ function setupTestDb(): string {
  * Cleanup test database
  */
 function cleanupTestDb(): void {
+  resetDb();
   try {
-    Deno.removeSync("./data/test_checkpoint.db");
+    const dataDir = resolve(Deno.cwd(), "data");
+    Deno.removeSync(resolve(dataDir, TEST_DB_PATH));
   } catch {
     // Ignore if file doesn't exist
   }
-  resetDb();
 }
 
 Deno.test({

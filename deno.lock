@@ -3,8 +3,10 @@
   "specifiers": {
     "jsr:@db/sqlite@0.11": "0.11.1",
     "jsr:@denosaurs/plug@1": "1.1.0",
+    "jsr:@std/assert@*": "0.217.0",
     "jsr:@std/assert@0.217": "0.217.0",
     "jsr:@std/assert@0.217.0": "0.217.0",
+    "jsr:@std/assert@1": "1.0.17",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/fmt@0.217": "0.217.0",
     "jsr:@std/fmt@1": "1.0.8",
@@ -16,7 +18,7 @@
     "jsr:@std/path@0.217.0": "0.217.0",
     "jsr:@std/path@1": "1.1.4",
     "jsr:@std/path@^1.1.4": "1.1.4",
-    "jsr:@std/yaml@0.211": "0.211.0",
+    "jsr:@std/yaml@1": "1.0.12",
     "npm:@ai-sdk/anthropic@3": "3.0.66_zod@3.25.76",
     "npm:@ai-sdk/openai@3": "3.0.50_zod@3.25.76",
     "npm:@anthropic-ai/sdk@0.32": "0.32.1",
@@ -55,6 +57,12 @@
         "jsr:@std/fmt@0.217"
       ]
     },
+    "@std/assert@1.0.17": {
+      "integrity": "df5ebfffe77c03b3fa1401e11c762cc8f603d51021c56c4d15a8c7ab45e90dbe",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
@@ -86,8 +94,8 @@
         "jsr:@std/internal"
       ]
     },
-    "@std/yaml@0.211.0": {
-      "integrity": "6310f61315a600f1908d49099712056224acb6d6d9944fec0e0467d89cb42a9b"
+    "@std/yaml@1.0.12": {
+      "integrity": "7deabca4545bcedd07c5f69ea53acea71b8b4c67562f224e17b90d75944cb20c"
     }
   },
   "npm": {
@@ -787,7 +795,9 @@
   "workspace": {
     "dependencies": [
       "jsr:@db/sqlite@0.11",
-      "jsr:@std/yaml@0.211",
+      "jsr:@std/assert@1",
+      "jsr:@std/path@1",
+      "jsr:@std/yaml@1",
       "npm:@ai-sdk/anthropic@3",
       "npm:@ai-sdk/openai@3",
       "npm:@anthropic-ai/sdk@0.32",
@@ -799,16 +809,6 @@
       "npm:ai@3",
       "npm:openai@4",
       "npm:zod@^3.22.0"
-    ],
-    "members": {
-      "packages/core": {
-        "dependencies": [
-          "jsr:@std/yaml@0.211",
-          "npm:@opentelemetry/core@^1.25.0",
-          "npm:@opentelemetry/sdk-trace-base@^1.25.0",
-          "npm:zod@^3.22.0"
-        ]
-      }
-    }
+    ]
   }
 }

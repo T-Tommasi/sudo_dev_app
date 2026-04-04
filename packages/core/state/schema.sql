@@ -1,5 +1,5 @@
 -- Glass-Box Agentic Platform - Core Schema
--- Phase 0.1: Sessions, Checkpoints, and Action Traces
+-- Phase 1: Sessions, Checkpoints, and Action Traces
 
 -- Sessions table: Tracks agentic planning sessions
 CREATE TABLE IF NOT EXISTS sessions (

@@ -2,7 +2,8 @@
  * Unit tests for action trace system
  */
 
-import { assertEquals } from "jsr:@std/assert@0.217.0";
+import { assertEquals } from "@std/assert";
+import { resolve } from "@std/path";
 import { getDb, resetDb } from "./db.ts";
 import {
   AsyncIterableSpanExporter,
@@ -14,7 +15,7 @@ import {
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
 
 // Test database path
-const TEST_DB_PATH = "./data/test_action_trace.db";
+const TEST_DB_PATH = "test_action_trace.db";
 
 /**
  * Setup test database with session and checkpoint
@@ -39,12 +40,14 @@ function setupTestDb(): { sessionId: string; checkpointId: string | null } {
  * Cleanup test database
  */
 function cleanupTestDb(): void {
+  resetDb();
   try {
-    Deno.removeSync("./data/test_action_trace.db");
+    // Resolve path correctly for cleanup
+    const dataDir = resolve(Deno.cwd(), "data");
+    Deno.removeSync(resolve(dataDir, TEST_DB_PATH));
   } catch {
     // Ignore if file doesn't exist
   }
-  resetDb();
 }
 
 /**

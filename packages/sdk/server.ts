@@ -68,7 +68,7 @@ interface SessionRow {
  */
 function createSession(goal: string, metadata?: Record<string, unknown>): string {
   const db = getDb();
-  const id = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const id = `session_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
   
   const stmt = db.prepare(`
@@ -119,9 +119,9 @@ function _updateSessionStatus(
   `);
   
   try {
-    const result = stmt.run(status, now, sessionId);
-    const changes = result as unknown as { changes: () => number };
-    return changes.changes() > 0;
+    // SQLite stmt.run() returns the number of changes directly
+    const changes = stmt.run(status, now, sessionId) as number;
+    return changes > 0;
   } finally {
     stmt.finalize();
   }
@@ -149,10 +149,10 @@ async function handleCreateSession(req: Request): Promise<Response> {
       { sessionId, goal, status: "pending" },
       { status: 201 },
     );
-  } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : "Unknown error";
+  } catch (_e) {
+    // Sanitize error message - do not expose internal details
     return Response.json(
-      { error: "Invalid request", details: errorMessage },
+      { error: "Invalid request" },
       { status: 400 },
     );
   }
@@ -365,9 +365,11 @@ function handler(req: Request): Response | Promise<Response> {
       { status: 404 },
     );
   } catch (e) {
+    // Log the actual error internally but do not expose details to client
     const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    console.error("Internal server error:", errorMessage);
     return Response.json(
-      { error: "Internal Server Error", details: errorMessage },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }

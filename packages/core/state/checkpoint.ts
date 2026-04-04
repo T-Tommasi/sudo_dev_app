@@ -43,7 +43,7 @@ export interface CheckpointData {
  * Generates a unique checkpoint ID
  */
 function generateCheckpointId(): string {
-  return `cp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  return `cp_${crypto.randomUUID()}`;
 }
 
 /**
@@ -67,12 +67,18 @@ export function createCheckpoint(
   const createdAt = new Date().toISOString();
 
   // Verify session exists before creating checkpoint
-  const sessionCheck = db.prepare(
+  const sessionCheckStmt = db.prepare(
     "SELECT id FROM sessions WHERE id = ?",
-  ).get(sessionId);
+  );
+  
+  try {
+    const sessionCheck = sessionCheckStmt.get(sessionId);
 
-  if (!sessionCheck) {
-    throw new Error(`Session not found: ${sessionId}`);
+    if (!sessionCheck) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+  } finally {
+    sessionCheckStmt.finalize();
   }
 
   const stmt = db.prepare(`
@@ -225,8 +231,8 @@ export function deleteCheckpoint(checkpointId: string): boolean {
 
   try {
     const result = stmt.run(checkpointId);
-    // SQLite driver returns { changes: number } for run operations
-    const changes = (result as unknown as { changes: () => number }).changes();
+    // SQLite driver returns the number of changes directly for run operations
+    const changes = typeof result === "number" ? result : 0;
     return changes > 0;
   } finally {
     stmt.finalize();
@@ -245,8 +251,8 @@ export function deleteCheckpointsBySession(sessionId: string): number {
 
   try {
     const result = stmt.run(sessionId);
-    // SQLite driver returns { changes: number } for run operations
-    const changes = (result as unknown as { changes: () => number }).changes();
+    // SQLite driver returns the number of changes directly for run operations
+    const changes = typeof result === "number" ? result : 0;
     return changes;
   } finally {
     stmt.finalize();

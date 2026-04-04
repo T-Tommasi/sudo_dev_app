@@ -2,9 +2,9 @@
  * Unit tests for configuration validation (Phase 0.1 foundation)
  * Tests .agentrc.yml validation with valid and invalid YAML.
  */
-import { assertEquals, assertThrows } from "jsr:@std/assert@0.217.0";
-import { z } from "npm:zod@^3.22.0";
-import { parse } from "npm:yaml@^2.8.0";
+import { assertEquals, assertThrows } from "@std/assert";
+import { z } from "zod";
+import { parse } from "yaml";
 import {
   AgentConfigSchema,
   parseAgentConfigFromYaml,

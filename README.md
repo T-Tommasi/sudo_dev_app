@@ -1,41 +1,89 @@
-# sudo_dev_app
+# opencode-glass
 
-A self-made custom application for agentic development workflows focused on monitorable results and procedures. Mostly just made it for fun.
+An observability-focused AI agent platform built on Deno. Every agent action, decision, tool execution, and state transition is visible, traceable, and debuggable.
 
 ---
 
 ## Project Vision
 
-**Glass-Box Transparency** — Every agent action, decision, and tool execution is visible, traceable, and debuggable. No black-box AI behavior.
+**Glass-Box Transparency** — Every LLM call, tool invocation, and state transition is logged with full context. Failures are debuggable down to the exact token or function call.
 
-**Observability-First Design** — Built from the ground up with telemetry as a first-class concern. Logs, metrics, and traces are not afterthoughts — they are the backbone of the platform.
-
-The platform aims to create an AI agent system where:
-- Every LLM call is logged with full prompt/response context
-- Tool invocations are traced with input/output schemas
-- Agent state transitions are observable in real-time
-- Failures are debuggable down to the exact token or function call
+**Observability-First Design** — Built from the ground up with telemetry as a first-class concern. Logs, metrics, traces, and real-time streaming are not afterthoughts.
 
 ---
 
-## Phase 0.1 Foundation
+## Phase 1: Observability & Checkpointing
 
-Phase 0.1 establishes the core runtime configuration and SDK infrastructure.
+Phase 1 establishes the observability layer with SQLite checkpointing and WebSocket-based real-time span streaming.
 
-### Core Configuration
+### Core Components
 
 | File | Purpose |
 |------|---------|
-| `deno.json` | Deno runtime configuration, permissions, import resolution |
-| `import_map.json` | Centralized dependency management for all SDK packages |
+| `packages/core/state/db.ts` | SQLite connection management with path traversal protection |
+| `packages/core/state/schema.sql` | Sessions, checkpoints, and action traces tables |
+| `packages/core/state/checkpoint.ts` | State checkpointing with session linking via TraceID |
+| `packages/core/state/action_trace.ts` | OpenTelemetry span exporters for real-time streaming |
+| `packages/sdk/server.ts` | HTTP server with WebSocket span streaming |
 
-### SDK Server
+### SDK Server Features
 
-The basic SDK server provides:
-- HTTP endpoint for agent tool invocations
-- Request/response logging middleware
-- Structured error handling
-- Health check endpoint
+- **HTTP Endpoints:**
+  - `GET /health` — Health check
+  - `POST /sessions` — Create a new session
+  - `GET /sessions/:id` — Get session by ID
+  - `GET /ws/stream` — WebSocket for real-time span streaming
+
+- **WebSocket Observability:**
+  - Real-time span streaming to connected clients
+  - Session/trace subscription filtering
+  - Connection limits (100 concurrent)
+  - Message size validation (64KB max)
+
+---
+
+## Directory Structure
+
+```
+sudo_dev_app/
+├── deno.json              # Workspace root config
+├── import_map.json        # Centralized dependency resolution
+├── AGENTS.md              # Platform architecture documentation
+├── packages/
+│   ├── core/              # Core runtime and state management
+│   │   ├── config/        # Agent configuration parsing
+│   │   └── state/         # SQLite DB, checkpoints, action traces
+│   ├── sdk/               # HTTP server with WebSocket streaming
+│   └── tui/               # Terminal UI components
+└── data/                  # SQLite checkpoint database
+```
+
+---
+
+## Getting Started
+
+```bash
+# Run the SDK server (default port 8080)
+deno run --allow-net --allow-env packages/sdk/server.ts
+
+# Run with custom host/port
+HOST=0.0.0.0 deno run --allow-net --allow-env packages/sdk/server.ts
+```
+
+### WebSocket Client Example
+
+```typescript
+const ws = new WebSocket("ws://localhost:8080/ws/stream");
+
+// Subscribe to specific session
+ws.send(JSON.stringify({ type: "subscribe", sessionId: "session_123" }));
+
+// Receive real-time spans
+ws.onmessage = (event) => {
+  const span = JSON.parse(event.data);
+  console.log(span.name, span.status);
+};
+```
 
 ---
 
@@ -53,36 +101,31 @@ The basic SDK server provides:
 
 ### Tracing
 - OpenTelemetry-compatible span generation
-- Tool input/output schema capture
-- LLM call context propagation
+- Session linking via TraceID in span attributes
+- Real-time WebSocket streaming
 
-### Dashboard
-- Real-time log streaming
-- Metric visualization
-- Trace exploration
-
----
-
-## Getting Started
-
-```bash
-# Run the SDK server
-deno run --allow-net --allow-env src/server.ts
-
-# Run with observability enabled
-deno run --allow-net --allow-env --allow-read src/server.ts
-```
+### SQLite Checkpointing
+- Sessions, checkpoints, and action traces tables
+- Full state snapshots for deterministic replay
+- Indexes for common query patterns
 
 ---
 
-## Project Structure
+## Security
 
-```
-├── deno.json           # Runtime config
-├── import_map.json     # Dependency map
-├── src/
-│   ├── server.ts       # SDK server entry
-│   ├── observability/  # Logging, metrics, tracing
-│   └── agents/         # Agent implementations
-└── README.md
-```
+### Path Traversal Protection
+The database module validates all paths to prevent traversal attacks:
+- Absolute paths are rejected
+- Relative paths are resolved and validated against the data directory
+- Path traversal attempts throw descriptive errors
+
+### Error Sanitization
+Internal error details are never exposed to clients. All errors are logged server-side with full context while clients receive sanitized messages.
+
+---
+
+## Version History
+
+| Version | Description |
+|---------|-------------|
+| 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |

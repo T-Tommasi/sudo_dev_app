@@ -1,11 +1,5 @@
 {
   "name": "@sudo/core",
   "version": "0.1.0",
-  "exports": "./mod.ts",
-  "imports": {
-    "zod": "npm:zod@^3.22.0",
-    "yaml": "jsr:@std/yaml@^0.211.0",
-    "@opentelemetry/core": "npm:@opentelemetry/core@^1.25.0",
-    "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.25.0"
-  }
+  "exports": "./mod.ts"
 }
