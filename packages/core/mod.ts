@@ -3,3 +3,6 @@ export * from "./state/db.ts";
 export * from "./state/action_trace.ts";
 export * from "./state/checkpoint.ts";
 export * from "./config/agentrc.ts";
+export * from "./agent/types.ts";
+export * from "./telemetry/tracing.ts";
+export * from "./orchestrator/knowledge_gate.ts";

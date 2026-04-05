@@ -108,6 +108,95 @@ The Reviewer is a specialized sub-agent focused on post-implementation quality a
 
 ---
 
+## Agentic Loop Pipeline
+
+The platform implements a secure execution pipeline for task fulfillment. The loop ensures every implementation passes through quality gates before completion.
+
+### Pipeline Stages
+
+```
+Implementation → Review → Security → Doc Writer
+```
+
+| Stage | Agent | Purpose | Blocking? |
+|-------|-------|---------|-----------|
+| 1 | `general_coder` | Execute the implementation task | Yes |
+| 2 | `reviewer` | Verify code quality, SOLID compliance | Yes |
+| 3 | `security_analyzer` | Audit vulnerabilities, auth flows, RLS | Yes |
+| 4 | `doc_writer` | Generate documentation | No |
+
+### Retry Behavior
+
+- **Review failures** — Loop back to Implementation (up to `maxRetries`)
+- **Security failures** — Retry up to `maxSecurityRetries` (default: 1)
+- **Doc Writer failures** — Non-blocking; logged as warnings
+
+After max retries, the Implementation result proceeds as "best effort" success.
+
+### Configuration
+
+The loop enforces security constraints through config sanitization:
+
+```typescript
+const config = {
+  limits: {
+    maxSteps: 100,      // Maximum execution steps
+    maxRetries: 3,      // Implementation retry limit
+    timeoutSeconds: 300 // Execution timeout
+  }
+};
+```
+
+### Execution Flow
+
+1. **Decompose** — Orchestrator breaks goal into domain-specific subtasks
+2. **Route** — Subtasks assigned to domain-specialized agents
+3. **Execute** — Pipeline runs through each stage sequentially
+4. **Checkpoint** — State saved at configurable intervals
+5. **Gate** — Human Review triggered for schema/auth/security changes
+
+---
+
+## KnowledgeGate Context Injection
+
+The KnowledgeGate acts as a contextual filter and enrichment layer. Before any sub-agent receives a task briefing, the KnowledgeGate ensures the briefing is self-contained — including all relevant schema, types, patterns, and prior decisions.
+
+### Supported Domains
+
+| Domain | Context Provided |
+|--------|-----------------|
+| `database` | Schema definitions, table structures, RLS policies, query patterns |
+| `frontend` | Svelte 5 runes, component patterns, state management, API integration |
+| `deno` | Deno runtime, import paths, deployment patterns, testing conventions |
+
+### Interface
+
+```typescript
+interface KnowledgeGate {
+  inject(briefing: string, domain: Domain): Promise<string>;
+  getSupportedDomains(): Domain[];
+  registerDomain(domain: Domain, context: string): void;
+}
+```
+
+### Usage
+
+```typescript
+import { createKnowledgeGate } from "@opencode-glass/core/orchestrator/knowledge_gate.ts";
+
+const knowledgeGate = createKnowledgeGate();
+
+// Inject context into a briefing
+const enrichedBriefing = await knowledgeGate.inject(
+  "Create a new user table",
+  "database"
+);
+```
+
+The KnowledgeGate supports runtime domain registration for extensibility beyond the built-in domains.
+
+---
+
 ## Directory Structure
 
 ```
@@ -128,15 +217,28 @@ The core package contains the foundational runtime infrastructure:
 
 | Path | Purpose |
 |------|---------|
+| `agent/types.ts` | BaseAgent, AgentContext, AgentResult interfaces |
 | `config/agentrc.ts` | `.agentrc.yml` parsing and validation |
+| `orchestrator/orchestrator.ts` | Task decomposition, domain routing, review reports |
+| `orchestrator/loop.ts` | Agentic loop execution with retry logic |
+| `orchestrator/knowledge_gate.ts` | Context injection for sub-agent briefings |
+| `telemetry/tracing.ts` | TraceableAgent decorator with OpenTelemetry spans |
 | `state/db.ts` | SQLite connection management |
 | `state/schema.sql` | Session, checkpoint, and action trace tables |
 
+> **Note:** The agent implementations in `orchestrator/orchestrator.ts` are stubs that return the input task as output. These are placeholder implementations for testing the orchestration logic. Real agent implementations should be provided by the caller of the Orchestrator.
+
 **Key Exports:**
+- `BaseAgent` — Abstract base class for all agents
+- `AgentContext` — Session and trace context passed to agents
+- `AgentResult` — Execution result with status and metadata
 - `AgentConfigSchema` — Zod schema for configuration validation
 - `parseAgentConfig()` — Parse and validate `.agentrc.yml` files
-- `getDb()` — Initialize or retrieve SQLite database connection
-- Checkpoint and session management functions
+- `Orchestrator` — Task decomposition and agent routing
+- `executeTask()` — Agentic loop execution with retry logic
+- `KnowledgeGate` — Context injection interface
+- `TraceableAgent` — OpenTelemetry-decorated agent wrapper
+- `createTraceableAgent()` — Factory for TraceableAgent instances
 
 ### packages/sdk
 
@@ -450,6 +552,7 @@ limits:
 
 | Version | Description |
 |---------|-------------|
+| 0.2.0 | Phase 2 — Agentic loop, Orchestrator, KnowledgeGate, TraceableAgent |
 | 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |
 | 0.0.1 | Phase 0.1 — Core runtime configuration, SDK infrastructure |
 

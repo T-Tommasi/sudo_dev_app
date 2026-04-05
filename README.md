@@ -26,6 +26,49 @@ Phase 1 establishes the observability layer with SQLite checkpointing and WebSoc
 | `packages/core/state/action_trace.ts` | OpenTelemetry span exporters for real-time streaming |
 | `packages/sdk/server.ts` | HTTP server with WebSocket span streaming |
 
+---
+
+## Phase 2: Agentic Loop & Orchestration
+
+Phase 2 introduces the secure agentic execution loop with the Orchestrator, KnowledgeGate context injection, and TraceableAgent for full observability.
+
+### Agentic Loop Pipeline
+
+The platform implements a secure execution pipeline: **Implementation → Review → Security → Documentation**.
+
+```
+┌─────────────┐    ┌─────────┐    ┌──────────┐    ┌───────────┐
+│ Implementation│ -> │ Reviewer│ -> │ Security │ -> │ Doc Writer│
+│  (general_coder)│    │         │    │ Analyzer │    │           │
+└─────────────┘    └─────────┘    └──────────┘    └───────────┘
+       │                  │              │               │
+       v                  v              v               v
+   Execute task      Verify code   Security audit   Generate docs
+   implementation    quality       vulnerabilities  (non-blocking)
+```
+
+**Pipeline Behavior:**
+- **Implementation** executes first with the task goal
+- **Reviewer** validates code quality (lint/type errors, SOLID compliance)
+- **Security** performs vulnerability analysis (auth flows, RLS exposure)
+- **Doc Writer** generates documentation (non-blocking — failures are logged but don't halt the pipeline)
+
+**Retry Logic:**
+- Review failures loop back to Implementation (up to `maxRetries`)
+- Security failures retry up to `maxSecurityRetries` (default: 1)
+- After max retries, Implementation result proceeds as "best effort" success
+
+### Core Components
+
+| File | Purpose |
+|------|---------|
+| `packages/core/orchestrator/orchestrator.ts` | Task decomposition, domain routing, review report generation |
+| `packages/core/orchestrator/loop.ts` | Agentic loop execution with retry logic and config sanitization |
+| `packages/core/orchestrator/knowledge_gate.ts` | Context injection for sub-agent briefings |
+| `packages/core/telemetry/tracing.ts` | TraceableAgent decorator with OpenTelemetry spans |
+| `packages/core/agent/types.ts` | Agent interfaces (AgentContext, AgentResult, BaseAgent) |
+| `packages/core/config/agentrc.ts` | Configuration parsing with Zod validation |
+
 ### SDK Server Features
 
 - **HTTP Endpoints:**
@@ -51,8 +94,11 @@ sudo_dev_app/
 ├── AGENTS.md              # Platform architecture documentation
 ├── packages/
 │   ├── core/              # Core runtime and state management
+│   │   ├── agent/         # Base agent interfaces and types
 │   │   ├── config/        # Agent configuration parsing
-│   │   └── state/         # SQLite DB, checkpoints, action traces
+│   │   ├── orchestrator/  # Task decomposition, loop execution, KnowledgeGate
+│   │   ├── state/         # SQLite DB, checkpoints, action traces
+│   │   └── telemetry/     # OpenTelemetry tracing (TraceableAgent)
 │   ├── sdk/               # HTTP server with WebSocket streaming
 │   └── tui/               # Terminal UI components
 └── data/                  # SQLite checkpoint database
@@ -128,4 +174,5 @@ Internal error details are never exposed to clients. All errors are logged serve
 
 | Version | Description |
 |---------|-------------|
+| 0.2.0 | Phase 2 — Agentic loop, Orchestrator, KnowledgeGate, TraceableAgent |
 | 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |
