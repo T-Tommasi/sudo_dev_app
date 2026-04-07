@@ -22,7 +22,7 @@ function getOpenCodeChatClient(apiKey: string) {
  */
 function getOpenCodeMessagesClient(apiKey: string) {
   return new Anthropic({
-    apiKey,
+    apiKey, // Used for signing but we'll override headers
     baseURL: "https://opencode.ai/zen/go/v1",
   });
 }
@@ -136,20 +136,37 @@ export async function generateOpenCodeCompletion(
 
   // Route to appropriate endpoint based on model family
   if (isMiniMaxModel(modelId)) {
-    // MiniMax models use Anthropic SDK via /messages endpoint
-    const client = getOpenCodeMessagesClient(apiKey);
-    
-    const response = await client.messages.create({
-      model: cleanModelId,
-      system: systemPrompt,
-      messages: [
-        { role: "user", content: userMessage }
-      ],
-      max_tokens: 4096,
-      temperature: 0.7,
+    // MiniMax models use Anthropic-compatible /messages endpoint
+    // Use raw fetch to ensure correct x-api-key header
+    const response = await fetch("https://opencode.ai/zen/go/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        model: cleanModelId,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+        max_tokens: 4096,
+        temperature: 0.7,
+      }),
     });
 
-    return response.content[0]?.type === "text" ? response.content[0].text : "";
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`MiniMax API error: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    // Handle Anthropic response format - content is an array of blocks
+    const content = data.content || [];
+    for (const block of content) {
+      if (block.type === "text") {
+        return block.text;
+      }
+    }
+    return "";
   } else {
     // All other models (Kimi, GLM, MiMo) use OpenAI SDK via /chat/completions endpoint
     const client = getOpenCodeChatClient(apiKey);
