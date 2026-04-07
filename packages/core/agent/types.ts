@@ -1,5 +1,18 @@
 import { AgentConfig } from "../config/agentrc.ts";
 
+/**
+ * Supported domain identifiers for agent routing.
+ * Each domain corresponds to a specialized sub-agent.
+ */
+export type Domain = 
+  | "database" 
+  | "frontend" 
+  | "deno" 
+  | "security" 
+  | "implementation" 
+  | "documentation"
+  | "google_cli";
+
 export interface AgentContext {
   sessionId: string;
   checkpointId?: string;

@@ -14,7 +14,7 @@ export const AgentConfigSchema = z.object({
   }),
   /** LLM provider configuration */
   model: z.object({
-    provider: z.enum(["openai", "anthropic"]),
+    provider: z.enum(["openai", "anthropic", "opencode", "google_cli"]),
     model: z.string().min(1),
     temperature: z.number().min(0).max(2).default(0.7),
     maxTokens: z.number().int().positive().optional(),

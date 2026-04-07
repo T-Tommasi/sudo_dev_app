@@ -1,5 +1,6 @@
 import { assertEquals, assertStringIncludes, assertRejects } from "@std/assert";
-import { DefaultKnowledgeGate, KnowledgeGate, Domain } from "./knowledge_gate.ts";
+import { DefaultKnowledgeGate, KnowledgeGate } from "./knowledge_gate.ts";
+import { Domain } from "../agent/types.ts";
 
 Deno.test("KnowledgeGate - injects context into briefing", async () => {
   const gate: KnowledgeGate = new DefaultKnowledgeGate();

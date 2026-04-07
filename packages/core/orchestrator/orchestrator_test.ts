@@ -22,7 +22,7 @@ Deno.test("Orchestrator - decomposes a goal into subtasks", async () => {
   assertEquals(subtasks[0].goal !== "", true);
 });
 
-Deno.test("Orchestrator - routes subtasks to correct domains", async () => {
+Deno.test("Orchestrator - routes subtasks to correct domains", () => {
   const orchestrator = new Orchestrator(mockConfig);
   
   const dbTask: SubTask = { id: "1", goal: "Create users table", domain: "database" };

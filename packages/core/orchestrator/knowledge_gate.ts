@@ -8,10 +8,9 @@
  * Supports the Open/Closed principle by allowing runtime registration of new domains.
  */
 
-/**
- * Supported domain identifiers for context injection.
- */
-export type Domain = "database" | "frontend" | "deno";
+import { Domain } from "../agent/types.ts";
+
+export type { Domain };
 
 /**
  * KnowledgeGate interface for context injection.
@@ -43,8 +42,9 @@ export interface KnowledgeGate {
 /**
  * Hardcoded context map for supported domains.
  * Each context includes relevant schema, types, patterns, and prior decisions.
+ * Uses Partial<Record<Domain, string>> to support only the domains that have context defined.
  */
-const DOMAIN_CONTEXTS: Record<Domain, string> = {
+const DOMAIN_CONTEXTS: Partial<Record<Domain, string>> = {
   database: `
 === DATABASE CONTEXT ===
 SCHEMA_CONTEXT:
@@ -125,7 +125,7 @@ STYLING:
   deno: `
 === DENO CONTEXT ===
 RUNTIME: Deno with TypeScript
-IMPORT_PATHS:
+IMPORT_PATTERNS:
 - Use jsr: for JSR packages
 - Use npm: for npm packages
 - Use std/ for standard library
@@ -161,15 +161,20 @@ export class DefaultKnowledgeGate implements KnowledgeGate {
 
   constructor(contexts?: Partial<Record<Domain, string>>) {
     // Merge provided contexts with defaults, preferring provided ones
-    this.contexts = new Map([
-      ["database", DOMAIN_CONTEXTS.database],
-      ["frontend", DOMAIN_CONTEXTS.frontend],
-      ["deno", DOMAIN_CONTEXTS.deno],
-    ]);
+    this.contexts = new Map();
+    
+    // Add default contexts, filtering out undefined values
+    for (const [domain, context] of Object.entries(DOMAIN_CONTEXTS)) {
+      if (context !== undefined) {
+        this.contexts.set(domain as Domain, context);
+      }
+    }
+    
+    // Merge provided contexts
     if (contexts) {
       for (const [domain, context] of Object.entries(contexts)) {
-        if (domain === "database" || domain === "frontend" || domain === "deno") {
-          this.contexts.set(domain, context);
+        if (context !== undefined) {
+          this.contexts.set(domain as Domain, context);
         }
       }
     }

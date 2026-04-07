@@ -1,13 +1,8 @@
 import { AgentConfig, AgentConfigSchema } from "../config/agentrc.ts";
-import { AgentContext, AgentResult } from "../agent/types.ts";
+import { AgentContext, AgentResult, BaseAgent } from "../agent/types.ts";
+import { createTraceableAgent } from "../telemetry/tracing.ts";
 
-export type AgentMap = Record<string, BaseAgentLike>;
-
-interface BaseAgentLike {
-  name: string;
-  role: string;
-  execute(task: string, context: AgentContext): Promise<AgentResult>;
-}
+export type AgentMap = Record<string, BaseAgent>;
 
 export interface LoopConfig extends AgentConfig {
   maxSecurityRetries?: number;
@@ -110,25 +105,31 @@ export async function executeTask(
         output: `Maximum iteration limit (${maxIterations}) reached. Halting to prevent infinite loop.`,
       };
     }
-    // Step 1: Execute Implementation agent
+    // Step 1: Execute Implementation agent (wrapped for observability)
     const implementationAgent = agents["implementation"];
     if (!implementationAgent) {
       return { status: "error", output: "Implementation agent not found" };
     }
 
+    // Wrap with TraceableAgent for Glass-Box observability
+    const traceableImplAgent = createTraceableAgent(implementationAgent);
     implementationAttempts++;
-    const implResult = await implementationAgent.execute(currentGoal, context);
+    const implResult = await traceableImplAgent.execute(currentGoal, context);
 
-    // Step 2: Execute Reviewer agent
+    // Step 2: Execute Reviewer agent (wrapped for observability)
     const reviewerAgent = agents["reviewer"];
     if (!reviewerAgent) {
       return { status: "error", output: "Reviewer agent not found" };
     }
 
-    const reviewResult = await reviewerAgent.execute(currentGoal, context);
+    // Wrap with TraceableAgent for Glass-Box observability
+    const traceableReviewerAgent = createTraceableAgent(reviewerAgent);
+    const reviewResult = await traceableReviewerAgent.execute(currentGoal, context);
 
     if (reviewResult.status === "failure") {
       // Reviewer failed → loop back to Implementation (retry) if under limit
+      // Note: Using > maxRetries to allow exactly maxRetries retries after initial attempt
+      // Example: maxRetries=1 allows 2 attempts (initial + 1 retry)
       if (implementationAttempts > maxRetries) {
         // After max retries, return implementation result as success (best effort)
         return {
@@ -147,22 +148,27 @@ export async function executeTask(
       return { status: "error", output: reviewResult.output };
     }
 
-    // Step 3: Execute Security agent
+    // Step 3: Execute Security agent (wrapped for observability)
     const securityAgent = agents["security_analyzer"];
     if (!securityAgent) {
       return { status: "error", output: "Security analyzer agent not found" };
     }
 
-    const securityResult = await securityAgent.execute(currentGoal, context);
+    // Wrap with TraceableAgent for Glass-Box observability
+    const traceableSecurityAgent = createTraceableAgent(securityAgent);
+    const securityResult = await traceableSecurityAgent.execute(currentGoal, context);
 
     if (securityResult.status === "failure") {
       // Security failed → retry up to N times
+      // Note: Using > maxSecurityRetries to allow exactly maxSecurityRetries retries
       securityRetryCount++;
       if (securityRetryCount > maxSecurityRetries) {
         // Halting after max retries
         return { status: "halt", output: securityResult.output };
       }
-      // Retry security check
+      // Security retry succeeded - restart from Implementation to re-verify
+      // This fixes the pipeline state leak where security retry success 
+      // doesn't re-verify implementation
       continue;
     }
 
@@ -170,11 +176,13 @@ export async function executeTask(
       return { status: "error", output: securityResult.output };
     }
 
-    // Step 4: Execute Doc Writer agent (non-blocking)
+    // Step 4: Execute Doc Writer agent (non-blocking, wrapped for observability)
     const docWriterAgent = agents["doc_writer"];
     if (docWriterAgent) {
       try {
-        const docResult = await docWriterAgent.execute(currentGoal, context);
+        // Wrap with TraceableAgent for Glass-Box observability
+        const traceableDocWriterAgent = createTraceableAgent(docWriterAgent);
+        const docResult = await traceableDocWriterAgent.execute(currentGoal, context);
         if (docResult.status === "failure") {
           // Non-blocking: log warning but continue
           console.warn("Doc Writer failed:", docResult.output);

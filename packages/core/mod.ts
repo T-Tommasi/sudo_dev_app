@@ -4,5 +4,7 @@ export * from "./state/action_trace.ts";
 export * from "./state/checkpoint.ts";
 export * from "./config/agentrc.ts";
 export * from "./agent/types.ts";
+export * from "./agent/llm.ts";
 export * from "./telemetry/tracing.ts";
 export * from "./orchestrator/knowledge_gate.ts";
+export { Orchestrator, type Domain, type SubTask, type ActionSummary } from "./orchestrator/orchestrator.ts";

@@ -7,18 +7,41 @@ import {
 import { AgentContext, AgentResult, BaseAgent } from "../agent/types.ts";
 
 /**
+ * Regex pattern to match API keys and secrets.
+ * Matches patterns like:
+ * - 'sk-...' (OpenAI)
+ * - 'sk-ant-...' (Anthropic)
+ * - 'Bearer ...' tokens
+ * - Case-insensitive variants
+ */
+const SECRET_PATTERN = /(sk-[a-zA-Z0-9]+|sk-ant-[a-zA-Z0-9_-]+|bearer\s+[a-zA-Z0-9_-]+)/gi;
+
+/**
+ * Redacts secrets from a string by replacing matched patterns with [REDACTED].
+ * @param input - The input string to redact secrets from
+ * @returns The redacted string
+ */
+function redactSecrets(input: string): string {
+  return input.replace(SECRET_PATTERN, "[REDACTED]");
+}
+
+/**
  * Safely serializes a value to a string for use in span attributes.
  * Uses JSON.stringify for objects to ensure proper serialization.
+ * Applies secret redaction to strings before serialization.
  */
 function serializeAttribute(value: unknown): string {
   if (value === null || value === undefined) {
     return String(value);
   }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === "string") {
+    return redactSecrets(value);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   // For objects, arrays, and other complex types, use JSON.stringify
-  return JSON.stringify(value);
+  return redactSecrets(JSON.stringify(value));
 }
 
 /**
@@ -45,6 +68,9 @@ export class TraceableAgent implements BaseAgent {
   }
 
   async execute(task: string, ctx: AgentContext): Promise<AgentResult> {
+    // Redact secrets from task before setting as span attribute
+    const redactedTask = redactSecrets(task);
+
     return await this.tracer.startActiveSpan(
       `agent.${this.name}.execute`,
       {
@@ -54,7 +80,7 @@ export class TraceableAgent implements BaseAgent {
           "agent.role": this.role,
           "session.id": ctx.sessionId,
           "trace.id": ctx.traceId,
-          "task": task,
+          "task": redactedTask,
         },
       },
       async (span): Promise<AgentResult> => {

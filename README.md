@@ -32,6 +32,43 @@ Phase 1 establishes the observability layer with SQLite checkpointing and WebSoc
 
 Phase 2 introduces the secure agentic execution loop with the Orchestrator, KnowledgeGate context injection, and TraceableAgent for full observability.
 
+### Phase 2.1: OpenCode Go Integration & Google CLI Routing
+
+Phase 2.1 adds support for OpenCode Go models with split-protocol routing and Google CLI agent execution.
+
+#### OpenCode Go Split-Protocol
+
+The platform supports OpenCode Go models through a split-protocol approach that routes to the appropriate API based on model family:
+
+| Model Family | API Protocol | Endpoint |
+|--------------|--------------|----------|
+| `minimax-m2.7`, `minimax-m2.5` | Anthropic-compatible | `https://opencode.ai/zen/go/v1` |
+| `kimi`, `glm`, `mimo` | OpenAI-compatible | `https://opencode.ai/zen/go/v1` |
+
+#### LRU Cache for Model Instances
+
+Model instances are cached using an LRU (Least Recently Used) cache to prevent memory leaks from unbounded growth:
+
+- **Max cache size:** 10 model instances
+- **Eviction policy:** Least recently used entry removed when capacity is reached
+- **Cache key format:** `{provider}_{modelId}` (e.g., `opencode_minimax-m2.7`)
+
+#### Google CLI Routing
+
+A dedicated `google_cli` domain routes tasks to the local `google` CLI tool for Google Cloud operations:
+
+| Command | Description |
+|---------|-------------|
+| `gcloud` | Google Cloud CLI core commands |
+| `compute` | Compute Engine management |
+| `container` | Kubernetes/Container management |
+| `functions` | Cloud Functions deployment |
+| `run` | Cloud Run management |
+| `kube` / `gke` | GKE cluster management |
+| `auth` | Authentication management |
+
+**Security:** Only allowlisted commands are permitted, and all arguments are validated against shell metacharacters to prevent command injection.
+
 ### Agentic Loop Pipeline
 
 The platform implements a secure execution pipeline: **Implementation → Review → Security → Documentation**.
@@ -174,5 +211,6 @@ Internal error details are never exposed to clients. All errors are logged serve
 
 | Version | Description |
 |---------|-------------|
+| 0.3.0 | Phase 2.1 — OpenCode Go split-protocol, Google CLI routing, LRU cache for models |
 | 0.2.0 | Phase 2 — Agentic loop, Orchestrator, KnowledgeGate, TraceableAgent |
 | 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |

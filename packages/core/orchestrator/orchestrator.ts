@@ -1,7 +1,10 @@
 import { AgentConfig } from "../config/agentrc.ts";
-import { BaseAgent, AgentResult } from "../agent/types.ts";
+import { BaseAgent, AgentResult, AgentContext, Domain } from "../agent/types.ts";
+import { createLLMClient, generateCompletion, GOOGLE_CLI_SENTINEL } from "../agent/llm.ts";
+import { LanguageModel } from "ai";
+import { GoogleCliAgent } from "../agent/google_cli.ts";
 
-export type Domain = "database" | "frontend" | "deno" | "security" | "implementation" | "documentation";
+export type { Domain, BaseAgent, AgentResult, AgentContext };
 
 export interface SubTask {
   id: string;
@@ -22,60 +25,142 @@ const DOMAIN_KEYWORDS: Record<Domain, string[]> = {
   security: ["security", "auth", "authentication", "rls", "permission"],
   implementation: ["implement", "feature", "build", "create", "add"],
   documentation: ["documentation", "docs", "readme", "api"],
+  google_cli: ["google cli", "gcloud", "google cloud", "google auth", "google compute", "google container", "google functions", "google run", "google kube", "google gke"],
 };
 
-class DatabaseAgent extends BaseAgent {
-  readonly name = "supabase_expert";
-  readonly role = "supabase_expert";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
+const DOMAIN_SYSTEM_PROMPTS: Record<Domain, string> = {
+  database: `You are a Supabase expert. Your role is to:
+- Write SQL queries, migrations, and schema definitions
+- Create and manage RLS (Row Level Security) policies
+- Work with Supabase tables, functions, and extensions
+- Optimize database performance
+
+When asked to create database objects, provide the exact SQL needed.`,
+  frontend: `You are a UI/Frontend expert. Your role is to:
+- Create Svelte components with Svelte 5 runes
+- Build responsive forms, buttons, inputs, and other UI elements
+- Implement state management with Svelte stores
+- Integrate with Supabase for data fetching
+
+When asked to create UI components, provide the complete component code.`,
+  deno: `You are a Deno runtime expert. Your role is to:
+- Write Deno Edge Functions for Supabase
+- Deploy applications using Deno Deploy
+- Work with Deno runtime APIs and TypeScript
+- Handle environment variables and configuration
+
+When asked to create Deno functions, provide the complete code with proper imports.`,
+  security: `You are a security analyst. Your role is to:
+- Audit code for security vulnerabilities
+- Review authentication and authorization flows
+- Check RLS policies for proper exposure
+- Identify potential security risks
+
+When asked to review security, provide a detailed analysis of potential issues.`,
+  implementation: `You are a general implementation expert. Your role is to:
+- Implement features based on requirements
+- Write clean, maintainable code
+- Follow best practices for the specific language/framework
+- Handle edge cases and error states
+
+When asked to implement something, provide complete working code.`,
+  documentation: `You are a documentation writer. Your role is to:
+- Write clear, concise documentation
+- Create API docs, README files, and guides
+- Document code changes and their rationale
+- Use appropriate formatting (Markdown, etc.)
+
+When asked to write docs, provide well-structured documentation.`,
+  google_cli: `You are a Google Cloud CLI expert. Your role is to:
+- Execute gcloud commands for cloud resource management
+- Manage authentication and IAM permissions
+- Deploy and manage Google Cloud resources
+- Work with Compute Engine, GKE, Cloud Run, and Functions
+
+When asked to perform cloud operations, provide the exact gcloud commands needed.`,
+};
+
+/**
+ * A parameterized LLM agent that accepts domain and systemPrompt in the constructor.
+ * This replaces the six duplicate stub agents with a single, reusable implementation.
+ */
+class LLMAgent extends BaseAgent {
+  constructor(
+    readonly name: string,
+    readonly role: string,
+    private readonly domain: Domain,
+    private readonly systemPrompt: string
+  ) {
+    super();
+  }
+
+  async execute(task: string, context: AgentContext): Promise<AgentResult> {
+    try {
+      const model = createLLMClient(context.config);
+      
+      // Check for google_cli sentinel or invalid model
+      if (model === GOOGLE_CLI_SENTINEL || !model) {
+        return {
+          status: "error",
+          output: `No LLM client available for provider: ${context.config.model.provider}`,
+        };
+      }
+
+      const result = await generateCompletion(model as LanguageModel, this.systemPrompt, task);
+
+      return {
+        status: "success",
+        output: result,
+        metadata: {
+          domain: this.domain,
+          model: context.config.model.model,
+          provider: context.config.model.provider,
+        },
+      };
+    } catch (error) {
+      return {
+        status: "error",
+        output: `${this.name} execution failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 }
 
-class FrontendAgent extends BaseAgent {
-  readonly name = "ui_expert";
-  readonly role = "ui_expert";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
-  }
-}
+class GoogleCliAgentWrapper extends BaseAgent {
+  readonly name = "google_cli_agent";
+  readonly role = "google_cli";
 
-class DenoAgent extends BaseAgent {
-  readonly name = "deno_expert";
-  readonly role = "deno_expert";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
-  }
-}
-
-class SecurityAgent extends BaseAgent {
-  readonly name = "security_analyzer";
-  readonly role = "security_analyzer";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
-  }
-}
-
-class ImplementationAgent extends BaseAgent {
-  readonly name = "general_coder";
-  readonly role = "general_coder";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
-  }
-}
-
-class DocumentationAgent extends BaseAgent {
-  readonly name = "doc_writer";
-  readonly role = "doc_writer";
-  async execute(task: string): Promise<AgentResult> {
-    return { status: "success", output: task };
+  async execute(task: string, context: AgentContext): Promise<AgentResult> {
+    try {
+      const agent = new GoogleCliAgent();
+      // Pass context with sessionId and traceId for observability
+      const result = await agent.execute(task, context);
+      // Enrich result with context metadata for Glass-Box tracing
+      return {
+        ...result,
+        metadata: {
+          ...result.metadata,
+          sessionId: context.sessionId,
+          traceId: context.traceId,
+        },
+      };
+    } catch (error) {
+      return {
+        status: "error",
+        output: `Google CLI agent execution failed: ${error instanceof Error ? error.message : String(error)}`,
+        metadata: {
+          sessionId: context.sessionId,
+          traceId: context.traceId,
+        },
+      };
+    }
   }
 }
 
 export class Orchestrator {
   constructor(private config: AgentConfig) {}
 
-  async decompose(goal: string): Promise<SubTask[]> {
+  decompose(goal: string): SubTask[] {
     const lowerGoal = goal.toLowerCase();
     const subtasks: SubTask[] = [];
     let taskId = 1;
@@ -105,25 +190,43 @@ export class Orchestrator {
   getAgentForTask(task: SubTask): BaseAgent {
     switch (task.domain) {
       case "database":
-        return new DatabaseAgent();
+        return new LLMAgent("supabase_expert", "supabase_expert", "database", DOMAIN_SYSTEM_PROMPTS.database);
       case "frontend":
-        return new FrontendAgent();
+        return new LLMAgent("ui_expert", "ui_expert", "frontend", DOMAIN_SYSTEM_PROMPTS.frontend);
       case "deno":
-        return new DenoAgent();
+        return new LLMAgent("deno_expert", "deno_expert", "deno", DOMAIN_SYSTEM_PROMPTS.deno);
       case "security":
-        return new SecurityAgent();
+        return new LLMAgent("security_analyzer", "security_analyzer", "security", DOMAIN_SYSTEM_PROMPTS.security);
       case "implementation":
-        return new ImplementationAgent();
+        return new LLMAgent("general_coder", "general_coder", "implementation", DOMAIN_SYSTEM_PROMPTS.implementation);
       case "documentation":
-        return new DocumentationAgent();
+        return new LLMAgent("doc_writer", "doc_writer", "documentation", DOMAIN_SYSTEM_PROMPTS.documentation);
+      case "google_cli":
+        return new GoogleCliAgentWrapper();
       default:
-        return new ImplementationAgent();
+        return new LLMAgent("general_coder", "general_coder", "implementation", DOMAIN_SYSTEM_PROMPTS.implementation);
     }
   }
 
   generateReviewReport(title: string, actions: ActionSummary[]): string {
+    if (!actions || actions.length === 0) {
+      return `## Review Gate — ${title}
+
+### What was done
+No actions recorded.
+
+### Functions and modules introduced
+None.
+
+### How it integrates
+N/A
+
+### Open decisions and ambiguities
+None.`;
+    }
+
     const whatWasDone = actions
-      .map((a) => `- Created ${a.name} at ${a.location}: ${a.purpose}`)
+      .map((a) => `- ${a.name} at ${a.location}: ${a.purpose}`)
       .join("\n");
 
     const functionsAndModules = actions
@@ -131,6 +234,10 @@ export class Orchestrator {
         (a) => `- **Name:** ${a.name}\n  - **Location:** ${a.location}\n  - **Purpose:** ${a.purpose}\n  - **Inputs / Outputs:** N/A\n  - **Why it exists:** ${a.purpose}`
       )
       .join("\n\n");
+
+    const openDecisions = actions.some(a => a.purpose.includes("?") || a.purpose.includes("unknown"))
+      ? "Some actions have ambiguous purposes that may require clarification."
+      : "None.";
 
     return `## Review Gate — ${title}
 
@@ -144,6 +251,6 @@ ${functionsAndModules}
 The new code integrates with existing modules through the standard import patterns defined in the workspace.
 
 ### Open decisions and ambiguities
-None.`;
+${openDecisions}`;
   }
 }

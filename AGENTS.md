@@ -81,6 +81,7 @@ Sub-agents are domain-specialized execution units. Each sub-agent operates withi
 | Implementation, refactoring, debugging | general_coder |
 | Code review (post-implementation) | reviewer |
 | Documentation, PLAN.md, API docs | doc_writer |
+| Google Cloud CLI operations (gcloud, compute, run) | google_cli_agent |
 
 **Responsibilities:**
 - Execute tasks within their domain boundary
@@ -168,6 +169,7 @@ The KnowledgeGate acts as a contextual filter and enrichment layer. Before any s
 | `database` | Schema definitions, table structures, RLS policies, query patterns |
 | `frontend` | Svelte 5 runes, component patterns, state management, API integration |
 | `deno` | Deno runtime, import paths, deployment patterns, testing conventions |
+| `google_cli` | gcloud commands, Compute Engine, GKE, Cloud Run, Cloud Functions |
 
 ### Interface
 
@@ -552,6 +554,7 @@ limits:
 
 | Version | Description |
 |---------|-------------|
+| 0.3.0 | Phase 2.1 — OpenCode Go split-protocol, Google CLI routing, LRU cache for models |
 | 0.2.0 | Phase 2 — Agentic loop, Orchestrator, KnowledgeGate, TraceableAgent |
 | 0.1.0 | Phase 1 — Observability layer, SQLite checkpointing, WebSocket streaming |
 | 0.0.1 | Phase 0.1 — Core runtime configuration, SDK infrastructure |
