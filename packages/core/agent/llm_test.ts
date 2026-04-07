@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { createLLMClient, GOOGLE_CLI_SENTINEL } from "./llm.ts";
+import { createLLMClient, GOOGLE_CLI_SENTINEL, isMiniMaxModel } from "./llm.ts";
 import { AgentConfig } from "../config/agentrc.ts";
 
 // Test the LRUCache class indirectly through createLLMClient
@@ -109,4 +109,44 @@ Deno.test("LRUCache - cache maintains max size through repeated calls", () => {
   
   // If we got here without crashing, the cache is working
   // The exact behavior depends on whether API keys are available
+});
+
+// Test isMiniMaxModel function - routing logic for split-protocol
+Deno.test("isMiniMaxModel returns true for minimax-m2.5", () => {
+  assertEquals(isMiniMaxModel("minimax-m2.5"), true);
+});
+
+Deno.test("isMiniMaxModel returns true for minimax-m2.7", () => {
+  assertEquals(isMiniMaxModel("minimax-m2.7"), true);
+});
+
+Deno.test("isMiniMaxModel returns true for minimax-m2.5 with prefix", () => {
+  assertEquals(isMiniMaxModel("opencode-go/minimax-m2.5"), true);
+});
+
+Deno.test("isMiniMaxModel returns false for kimi models", () => {
+  assertEquals(isMiniMaxModel("kimi-k2.5"), false);
+  assertEquals(isMiniMaxModel("kimi-k2.5-long"), false);
+});
+
+Deno.test("isMiniMaxModel returns false for glm models", () => {
+  assertEquals(isMiniMaxModel("glm-4-flash"), false);
+  assertEquals(isMiniMaxModel("glm-4-plus"), false);
+});
+
+Deno.test("isMiniMaxModel returns false for mimo models", () => {
+  assertEquals(isMiniMaxModel("mimo-mini"), false);
+  assertEquals(isMiniMaxModel("mimo-pro"), false);
+});
+
+Deno.test("isMiniMaxModel returns false for opencode-go prefixed models", () => {
+  assertEquals(isMiniMaxModel("opencode-go/kimi-k2.5"), false);
+  assertEquals(isMiniMaxModel("opencode-go/glm-4-flash"), false);
+  assertEquals(isMiniMaxModel("opencode-go/mimo-mini"), false);
+});
+
+Deno.test("isMiniMaxModel returns false for other models", () => {
+  assertEquals(isMiniMaxModel("gpt-4"), false);
+  assertEquals(isMiniMaxModel("claude-3-sonnet"), false);
+  assertEquals(isMiniMaxModel("random-model"), false);
 });

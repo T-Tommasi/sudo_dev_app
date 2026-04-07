@@ -3,9 +3,25 @@ import { LanguageModel, generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
+/**
+ * Creates an OpenAI-compatible client for /chat/completions endpoint.
+ * Used for Kimi, GLM, MiMo models.
+ */
 function getOpenCodeChatClient(apiKey: string) {
   return new OpenAI({
+    apiKey,
+    baseURL: "https://opencode.ai/zen/go/v1",
+  });
+}
+
+/**
+ * Creates an Anthropic-compatible client for /messages endpoint.
+ * Used for MiniMax models (minimax-m2.5, minimax-m2.7).
+ */
+function getOpenCodeMessagesClient(apiKey: string) {
+  return new Anthropic({
     apiKey,
     baseURL: "https://opencode.ai/zen/go/v1",
   });
@@ -94,6 +110,17 @@ function createLanguageModel<T extends LanguageModel>(
   return model as unknown as LanguageModel;
 }
 
+/**
+ * Determines which protocol to use based on the model family.
+ * MiniMax models use Anthropic SDK (/messages endpoint).
+ * All other OpenCode Go models (Kimi, GLM, MiMo) use OpenAI SDK (/chat/completions).
+ */
+export function isMiniMaxModel(modelId: string): boolean {
+  // Strip prefix if present (e.g., "opencode-go/minimax-m2.5" -> "minimax-m2.5")
+  const cleanModelId = modelId.replace(/^opencode-go\//, "");
+  return cleanModelId.startsWith("minimax-");
+}
+
 export async function generateOpenCodeCompletion(
   modelId: string,
   systemPrompt: string,
@@ -104,22 +131,41 @@ export async function generateOpenCodeCompletion(
     throw new Error("OPENCODE_API_KEY not found in environment");
   }
 
-  const client = getOpenCodeChatClient(apiKey);
-  
   // Strip prefix if present (e.g., "opencode-go/kimi-k2.5" -> "kimi-k2.5")
   const cleanModelId = modelId.replace(/^opencode-go\//, "");
-  
-  const response = await client.chat.completions.create({
-    model: cleanModelId,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage }
-    ],
-    max_tokens: 4096,
-    temperature: 0.7,
-  });
 
-  return response.choices[0]?.message?.content || "";
+  // Route to appropriate endpoint based on model family
+  if (isMiniMaxModel(modelId)) {
+    // MiniMax models use Anthropic SDK via /messages endpoint
+    const client = getOpenCodeMessagesClient(apiKey);
+    
+    const response = await client.messages.create({
+      model: cleanModelId,
+      system: systemPrompt,
+      messages: [
+        { role: "user", content: userMessage }
+      ],
+      max_tokens: 4096,
+      temperature: 0.7,
+    });
+
+    return response.content[0]?.type === "text" ? response.content[0].text : "";
+  } else {
+    // All other models (Kimi, GLM, MiMo) use OpenAI SDK via /chat/completions endpoint
+    const client = getOpenCodeChatClient(apiKey);
+    
+    const response = await client.chat.completions.create({
+      model: cleanModelId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage }
+      ],
+      max_tokens: 4096,
+      temperature: 0.7,
+    });
+
+    return response.choices[0]?.message?.content || "";
+  }
 }
 
 function getOpenAIModel(modelId: string): LanguageModel {
