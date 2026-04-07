@@ -11,10 +11,15 @@ import { AgentContext, AgentResult, BaseAgent } from "../agent/types.ts";
  * Matches patterns like:
  * - 'sk-...' (OpenAI)
  * - 'sk-ant-...' (Anthropic)
+ * - 'sk-proj-...' (Azure OpenAI)
  * - 'Bearer ...' tokens
+ * - JWT tokens (eyJ...)
+ * - GCP keys (AIza...)
+ * - AWS keys (AKIA...)
+ * - Generic secret patterns
  * - Case-insensitive variants
  */
-const SECRET_PATTERN = /(sk-[a-zA-Z0-9]+|sk-ant-[a-zA-Z0-9_-]+|bearer\s+[a-zA-Z0-9_-]+)/gi;
+const SECRET_PATTERN = /(sk-[a-zA-Z0-9]+|sk-ant-[a-zA-Z0-9_-]+|sk-proj-[a-zA-Z0-9_-]+|bearer\s+[a-zA-Z0-9_\-\.]+|eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+|AIza[_-][a-zA-Z0-9_-]+|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{22,}|xox[baprs]-[0-9a-zA-Z]{10,48})/gi;
 
 /**
  * Redacts secrets from a string by replacing matched patterns with [REDACTED].
@@ -110,7 +115,8 @@ export class TraceableAgent implements BaseAgent {
 
           return result;
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const rawErrorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = redactSecrets(rawErrorMessage);
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: errorMessage,

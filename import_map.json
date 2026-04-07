@@ -2,6 +2,7 @@
   "imports": {
     "ai": "npm:ai@^3.0.0",
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^3.0.0",
+    "@ai-sdk/openai-compatible": "npm:@ai-sdk/openai-compatible",
     "@ai-sdk/anthropic": "npm:@ai-sdk/anthropic@^3.0.0",
     "openai": "npm:openai@^4.0.0",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@^0.32.0",

@@ -2,7 +2,20 @@ import { AgentConfig, AgentConfigSchema } from "../config/agentrc.ts";
 import { AgentContext, AgentResult, BaseAgent } from "../agent/types.ts";
 import { createTraceableAgent } from "../telemetry/tracing.ts";
 
-export type AgentMap = Record<string, BaseAgent>;
+/**
+ * Type-safe agent role constants to replace stringly-typed keys.
+ * Use these constants when accessing the agents map.
+ */
+export const AgentRole = {
+  IMPLEMENTATION: "implementation",
+  REVIEWER: "reviewer",
+  SECURITY_ANALYZER: "security_analyzer",
+  DOC_WRITER: "doc_writer",
+} as const;
+
+export type AgentRoleType = typeof AgentRole[keyof typeof AgentRole];
+
+export type AgentMap = Record<AgentRoleType, BaseAgent>;
 
 export interface LoopConfig extends AgentConfig {
   maxSecurityRetries?: number;
@@ -106,7 +119,7 @@ export async function executeTask(
       };
     }
     // Step 1: Execute Implementation agent (wrapped for observability)
-    const implementationAgent = agents["implementation"];
+    const implementationAgent = agents[AgentRole.IMPLEMENTATION];
     if (!implementationAgent) {
       return { status: "error", output: "Implementation agent not found" };
     }
@@ -117,7 +130,7 @@ export async function executeTask(
     const implResult = await traceableImplAgent.execute(currentGoal, context);
 
     // Step 2: Execute Reviewer agent (wrapped for observability)
-    const reviewerAgent = agents["reviewer"];
+    const reviewerAgent = agents[AgentRole.REVIEWER];
     if (!reviewerAgent) {
       return { status: "error", output: "Reviewer agent not found" };
     }
@@ -149,7 +162,7 @@ export async function executeTask(
     }
 
     // Step 3: Execute Security agent (wrapped for observability)
-    const securityAgent = agents["security_analyzer"];
+    const securityAgent = agents[AgentRole.SECURITY_ANALYZER];
     if (!securityAgent) {
       return { status: "error", output: "Security analyzer agent not found" };
     }
@@ -167,6 +180,8 @@ export async function executeTask(
         return { status: "halt", output: securityResult.output };
       }
       // Security retry succeeded - restart from Implementation to re-verify
+      // Reset implementationAttempts so the full pipeline runs again
+      implementationAttempts = 0;
       // This fixes the pipeline state leak where security retry success 
       // doesn't re-verify implementation
       continue;
@@ -177,7 +192,7 @@ export async function executeTask(
     }
 
     // Step 4: Execute Doc Writer agent (non-blocking, wrapped for observability)
-    const docWriterAgent = agents["doc_writer"];
+    const docWriterAgent = agents[AgentRole.DOC_WRITER];
     if (docWriterAgent) {
       try {
         // Wrap with TraceableAgent for Glass-Box observability

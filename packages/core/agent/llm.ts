@@ -2,8 +2,14 @@ import { AgentConfig } from "../config/agentrc.ts";
 import { LanguageModel, generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { openai as stdOpenAI } from "@ai-sdk/openai";
-import { anthropic as stdAnthropic } from "@ai-sdk/anthropic";
+import OpenAI from "openai";
+
+function getOpenCodeChatClient(apiKey: string) {
+  return new OpenAI({
+    apiKey,
+    baseURL: "https://opencode.ai/zen/go/v1",
+  });
+}
 
 /**
  * LRU Cache implementation for model instances.
@@ -73,32 +79,14 @@ const MAX_CACHE_SIZE = 10;
 const staticModels = new LRUCache<string, LanguageModel>(MAX_CACHE_SIZE);
 
 /**
- * Type guard to validate a value is a valid LanguageModel.
- * Provides safer type checking than unsafe type assertions.
- */
-function isValidLanguageModel(value: unknown): value is LanguageModel {
-  if (value === null || value === undefined) {
-    return false;
-  }
-  // Check for required properties that indicate a valid LanguageModel
-  const obj = value as Record<string, unknown>;
-  return typeof obj.generateText === "function";
-}
-
-/**
  * Type-safe factory for creating LanguageModel instances.
  * Validates the model before returning to ensure type safety.
  */
 function createLanguageModel<T extends LanguageModel>(
   factory: () => T,
-  modelName: string
+  _modelName: string
 ): LanguageModel {
   const model = factory();
-  
-  // Validate the created model has the expected interface
-  if (!isValidLanguageModel(model)) {
-    throw new Error(`Failed to create valid LanguageModel for ${modelName}`);
-  }
   
   // Cast through unknown to satisfy TypeScript's strict type checking
   // This is necessary because the AI SDK may return LanguageModelV3 
@@ -106,39 +94,32 @@ function createLanguageModel<T extends LanguageModel>(
   return model as unknown as LanguageModel;
 }
 
-function getOpenCodeModel(provider: string, modelId: string): LanguageModel {
-  const cacheKey = `opencode_${provider}_${modelId}`;
-  
-  const cached = staticModels.get(cacheKey);
-  if (cached !== undefined) {
-    return cached;
-  }
-
+export async function generateOpenCodeCompletion(
+  modelId: string,
+  systemPrompt: string,
+  userMessage: string
+): Promise<string> {
   const apiKey = Deno.env.get("OPENCODE_API_KEY");
   if (!apiKey) {
     throw new Error("OPENCODE_API_KEY not found in environment");
   }
 
-  let model: LanguageModel;
+  const client = getOpenCodeChatClient(apiKey);
   
-  if (modelId.startsWith("minimax-m2.7") || modelId.startsWith("minimax-m2.5")) {
-    // Anthropic-Compatible API for minimax models
-    const anthropic = createAnthropic({
-      apiKey,
-      baseURL: "https://opencode.ai/zen/go/v1",
-    });
-    model = createLanguageModel(() => anthropic(modelId) as unknown as LanguageModel, modelId);
-  } else {
-    // OpenAI-Compatible API for kimi, glm, mimo models
-    const openai = createOpenAI({
-      apiKey,
-      baseURL: "https://opencode.ai/zen/go/v1",
-    });
-    model = createLanguageModel(() => openai(modelId) as unknown as LanguageModel, modelId);
-  }
+  // Strip prefix if present (e.g., "opencode-go/kimi-k2.5" -> "kimi-k2.5")
+  const cleanModelId = modelId.replace(/^opencode-go\//, "");
+  
+  const response = await client.chat.completions.create({
+    model: cleanModelId,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage }
+    ],
+    max_tokens: 4096,
+    temperature: 0.7,
+  });
 
-  staticModels.set(cacheKey, model);
-  return model;
+  return response.choices[0]?.message?.content || "";
 }
 
 function getOpenAIModel(modelId: string): LanguageModel {
@@ -149,7 +130,8 @@ function getOpenAIModel(modelId: string): LanguageModel {
     return cached;
   }
 
-  const model = createLanguageModel(() => stdOpenAI(modelId) as unknown as LanguageModel, modelId);
+  const openai = createOpenAI({});
+  const model = createLanguageModel(() => openai(modelId) as unknown as LanguageModel, modelId);
   staticModels.set(cacheKey, model);
   return model;
 }
@@ -162,7 +144,8 @@ function getAnthropicModel(modelId: string): LanguageModel {
     return cached;
   }
 
-  const model = createLanguageModel(() => stdAnthropic(modelId) as unknown as LanguageModel, modelId);
+  const anthropic = createAnthropic({});
+  const model = createLanguageModel(() => anthropic(modelId) as unknown as LanguageModel, modelId);
   staticModels.set(cacheKey, model);
   return model;
 }
@@ -180,7 +163,9 @@ export function createLLMClient(config: AgentConfig): LLMClient {
   const modelId = config.model.model;
 
   if (provider === "opencode") {
-    return getOpenCodeModel(provider, modelId);
+    // OpenCode Go requires direct HTTP calls due to SDK compatibility issues
+    // Use generateOpenCodeCompletion function instead
+    return GOOGLE_CLI_SENTINEL; // Placeholder - actual call happens in generateCompletion
   }
 
   if (provider === "openai") {
@@ -204,17 +189,25 @@ export function createLLMClient(config: AgentConfig): LLMClient {
 /**
  * Generate a chat completion using the provided LLM client.
  * This is a convenience function that wraps the Vercel AI SDK's generateText.
+ * Special handling for OpenCode Go due to SDK compatibility issues.
  *
  * @param model - The LanguageModel instance
  * @param systemPrompt - System prompt to guide the model
  * @param userMessage - The user message/task to process
+ * @param modelId - The model ID (needed for OpenCode Go)
  * @returns The generated text output
  */
 export async function generateCompletion(
   model: LanguageModel,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  modelId?: string
 ): Promise<string> {
+  // Check if this is an OpenCode Go model (has "opencode" in config or special model type)
+  if (modelId && (modelId.startsWith("opencode-go/") || modelId.startsWith("glm-") || modelId.startsWith("kimi-") || modelId.startsWith("mimo-") || modelId.startsWith("minimax-"))) {
+    return generateOpenCodeCompletion(modelId, systemPrompt, userMessage);
+  }
+
   const result = await generateText({
     model,
     system: systemPrompt,

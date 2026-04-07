@@ -16,6 +16,8 @@ export interface ActionSummary {
   name: string;
   location: string;
   purpose: string;
+  inputs?: string;
+  outputs?: string;
 }
 
 const DOMAIN_KEYWORDS: Record<Domain, string[]> = {
@@ -106,7 +108,7 @@ class LLMAgent extends BaseAgent {
         };
       }
 
-      const result = await generateCompletion(model as LanguageModel, this.systemPrompt, task);
+      const result = await generateCompletion(model as LanguageModel, this.systemPrompt, task, context.config.model.model);
 
       return {
         status: "success",
@@ -231,7 +233,7 @@ None.`;
 
     const functionsAndModules = actions
       .map(
-        (a) => `- **Name:** ${a.name}\n  - **Location:** ${a.location}\n  - **Purpose:** ${a.purpose}\n  - **Inputs / Outputs:** N/A\n  - **Why it exists:** ${a.purpose}`
+        (a) => `- **Name:** ${a.name}\n  - **Location:** ${a.location}\n  - **Purpose:** ${a.purpose}\n  - **Inputs / Outputs:** ${a.inputs && a.outputs ? `Inputs: ${a.inputs}, Outputs: ${a.outputs}` : (a.inputs || a.outputs || "N/A")}\n  - **Why it exists:** ${a.purpose}`
       )
       .join("\n\n");
 
