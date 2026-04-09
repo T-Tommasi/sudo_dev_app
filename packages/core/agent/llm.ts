@@ -3,7 +3,6 @@ import { LanguageModel, generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import OpenAI from "openai";
-import Anthropic from "@anthropic-ai/sdk";
 
 /**
  * Creates an OpenAI-compatible client for /chat/completions endpoint.
@@ -12,17 +11,6 @@ import Anthropic from "@anthropic-ai/sdk";
 function getOpenCodeChatClient(apiKey: string) {
   return new OpenAI({
     apiKey,
-    baseURL: "https://opencode.ai/zen/go/v1",
-  });
-}
-
-/**
- * Creates an Anthropic-compatible client for /messages endpoint.
- * Used for MiniMax models (minimax-m2.5, minimax-m2.7).
- */
-function getOpenCodeMessagesClient(apiKey: string) {
-  return new Anthropic({
-    apiKey, // Used for signing but we'll override headers
     baseURL: "https://opencode.ai/zen/go/v1",
   });
 }

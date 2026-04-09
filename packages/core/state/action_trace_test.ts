@@ -154,6 +154,7 @@ Deno.test("DatabaseSpanExporter - persists spans to database", () => {
 });
 
 Deno.test("DatabaseSpanExporter - handles export failure gracefully", () => {
+  setupTestDb();
   const exporter = new DatabaseSpanExporter();
   
   // Export with invalid data should not crash
@@ -161,6 +162,8 @@ Deno.test("DatabaseSpanExporter - handles export failure gracefully", () => {
   exporter.export([], () => {});
   
   assertEquals(exporter.isShutdown(), false);
+  
+  cleanupTestDb();
 });
 
 Deno.test("DatabaseSpanExporter - shutdown prevents further exports", () => {
