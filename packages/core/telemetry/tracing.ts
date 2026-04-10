@@ -4,7 +4,7 @@ import {
   SpanKind,
   type Tracer,
 } from "@opentelemetry/api";
-import { AgentContext, AgentResult, BaseAgent } from "../agent/types.ts";
+import { AgentContext, AgentPhase, AgentResult, BaseAgent } from "../agent/types.ts";
 
 /**
  * Regex pattern to match API keys and secrets.
@@ -90,6 +90,39 @@ export class TraceableAgent implements BaseAgent {
       },
       async (span): Promise<AgentResult> => {
         try {
+          // Derive phase from agent name
+          const phaseMap: Record<string, AgentPhase> = {
+            orchestrator: "decompose",
+            implementation: "execute",
+            reviewer: "review",
+            security_analyzer: "security",
+            doc_writer: "planning",
+            general_coder: "execute",
+          };
+          const agentPhase: AgentPhase = phaseMap[this.name] ?? "waiting";
+
+          // Derive thought from task (first 100 chars)
+          const agentThought = task.length > 100 ? task.slice(0, 100) : task;
+
+          // Emit agent_thinking child span before calling the agent
+          // The span is created as a child of the active parent span via startActiveSpan context propagation
+          const thinkingSpan = this.tracer.startSpan(
+            `agent.${this.name}.thinking`,
+            {
+              kind: SpanKind.INTERNAL,
+              attributes: {
+                "agent.name": this.name,
+                "agent.role": this.role,
+                "session.id": ctx.sessionId,
+                "trace.id": ctx.traceId,
+                "action.type": "agent_thinking",
+                "agent.thought": agentThought,
+                "agent.phase": agentPhase,
+              },
+            }
+          );
+          thinkingSpan.end();
+
           const result = await this.agent.execute(task, ctx);
 
           span.setAttributes({

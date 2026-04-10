@@ -28,6 +28,26 @@ export interface AgentResult {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Agent pipeline phases for agent_thinking spans.
+ */
+export type AgentPhase = "decompose" | "execute" | "review" | "security" | "planning" | "waiting";
+
+/**
+ * Attributes for agent_thinking span events.
+ * Used by TraceableAgent to emit child spans with reasoning information.
+ */
+export interface AgentThinkingAttributes {
+  "agent.name": string;
+  "agent.role": string;
+  "session.id": string;
+  "trace.id": string;
+  "action.type": "agent_thinking";
+  "agent.thought": string;
+  "agent.phase": AgentPhase;
+  "action.input"?: Record<string, unknown>;
+}
+
 export abstract class BaseAgent {
   abstract readonly name: string;
   abstract readonly role: string;

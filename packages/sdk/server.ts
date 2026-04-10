@@ -22,6 +22,51 @@ const MAX_WEBSOCKET_CONNECTIONS = 100;
 const MAX_MESSAGE_SIZE_BYTES = 64 * 1024; // 64KB
 
 /**
+ * Rate limiting for message posting per session
+ */
+const messageRateLimits = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 10;
+
+/**
+ * Session ID format validation regex
+ */
+const SESSION_ID_REGEX = /^session_[0-9a-f-]{36}$/;
+
+/**
+ * Maximum message content length
+ */
+const MAX_MESSAGE_LENGTH = 4096;
+
+/**
+ * Strips ANSI escape sequences and control characters from strings
+ * for safe terminal output. Keeps TAB (0x09), LF (0x0a), CR (0x0d).
+ *
+ * Strip order: OSC/DEC/8-bit-CSI/8-bit-OSC first (full sequences),
+ * then lone ESC, then C0 controls.
+ */
+export function sanitizeForTerminal(input: string): string {
+  return input
+    // Strip OSC sequences (\x1b]) with all terminators
+    // deno-lint-ignore no-control-regex
+    .replace(/\x1b\][^\x07\x1b\x9c]*(?:\x07|\x1b\\|\x9c)/g, "")
+    // Strip DEC sequences (\x1b[)
+    // deno-lint-ignore no-control-regex
+    .replace(/\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+    // Strip 8-bit CSI (\x9b)
+    .replace(/\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/g, "")
+    // Strip 8-bit OSC (\x9d)
+    // deno-lint-ignore no-control-regex
+    .replace(/\x9d[^\x07\x1b\x9c]*(?:\x07|\x1b\\|\x9c)/g, "")
+    // Remove remaining ESC characters (after full sequences stripped)
+    // deno-lint-ignore no-control-regex
+    .replace(/\x1b/g, "")
+    // Remove C0 control chars except TAB, LF, CR
+    // deno-lint-ignore no-control-regex
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+}
+
+/**
  * Active WebSocket connection counter with atomic operations
  */
 let activeWebSocketCount = 0;
@@ -106,6 +151,76 @@ function getSession(sessionId: string): SessionRow | null {
 }
 
 /**
+ * Gets all sessions
+ */
+function getAllSessions(): SessionRow[] {
+  const db = getDb();
+  const stmt = db.prepare("SELECT * FROM sessions ORDER BY created_at DESC");
+  
+  try {
+    const rows = stmt.all() as unknown as SessionRow[];
+    return rows;
+  } finally {
+    stmt.finalize();
+  }
+}
+
+/**
+ * In-memory message storage for chat functionality
+ * Key: sessionId, Value: array of messages
+ */
+const sessionMessages = new Map<string, Array<{
+  id: string;
+  content: string;
+  type: string;
+  timestamp: string;
+}>>();
+const MAX_SESSION_MESSAGES = 100;
+const MAX_TOTAL_MESSAGES = 10_000;
+
+/**
+ * Validates session ID format
+ */
+export function isValidSessionId(sessionId: string): boolean {
+  return SESSION_ID_REGEX.test(sessionId);
+}
+
+/**
+ * Checks rate limit for message posting
+ */
+export function checkRateLimit(sessionId: string): boolean {
+  const now = Date.now();
+  const entry = messageRateLimits.get(sessionId);
+  
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // Start new window
+    messageRateLimits.set(sessionId, { count: 1, windowStart: now });
+    // Clean old entries (older than 2x window)
+    for (const [key, val] of messageRateLimits) {
+      if (now - val.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+        messageRateLimits.delete(key);
+      }
+    }
+    return true;
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
+
+/**
+ * Strips control characters from message content
+ */
+function sanitizeMessageContent(content: string): string {
+  // Remove C0 control chars except TAB, LF, CR and strip ANSI sequences
+  return sanitizeForTerminal(content);
+}
+
+/**
  * Updates session status
  */
 function _updateSessionStatus(
@@ -162,6 +277,14 @@ async function handleCreateSession(req: Request): Promise<Response> {
  * Session handler for GET /sessions/:id
  */
 function handleGetSession(_req: Request, sessionId: string): Response {
+  // Validate session ID format
+  if (!isValidSessionId(sessionId)) {
+    return Response.json(
+      { error: "Invalid session ID format" },
+      { status: 400 },
+    );
+  }
+
   const session = getSession(sessionId);
   
   if (!session) {
@@ -179,6 +302,133 @@ function handleGetSession(_req: Request, sessionId: string): Response {
     updatedAt: session.updated_at,
     metadata: session.metadata ? JSON.parse(session.metadata) : null,
   });
+}
+
+/**
+ * Sessions handler for GET /sessions - List all sessions
+ */
+export function handleListSessions(): Response {
+  const sessions = getAllSessions();
+  
+  return Response.json({
+    sessions: sessions.map((session) => ({
+      id: session.id,
+      goal: session.goal,
+      status: session.status,
+      createdAt: session.created_at,
+      updatedAt: session.updated_at,
+    })),
+  });
+}
+
+/**
+ * Message handler for POST /sessions/:id/messages - Send a message to a session
+ */
+async function handlePostMessage(req: Request, sessionId: string): Promise<Response> {
+  // Validate session ID format
+  if (!isValidSessionId(sessionId)) {
+    return Response.json(
+      { error: "Invalid session ID format" },
+      { status: 400 },
+    );
+  }
+  
+  // Check rate limit
+  if (!checkRateLimit(sessionId)) {
+    return Response.json(
+      { error: "Rate limit exceeded", max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS },
+      { status: 429 },
+    );
+  }
+  
+  // Check session exists
+  const session = getSession(sessionId);
+  if (!session) {
+    return Response.json(
+      { error: "Session not found" },
+      { status: 404 },
+    );
+  }
+  
+  try {
+    const body = await req.json();
+    const content = body.content as string;
+    const type = (body.type as string) || "user_message";
+    
+    // Validate content
+    if (!content || typeof content !== "string") {
+      return Response.json(
+        { error: "Missing required field: content" },
+        { status: 400 },
+      );
+    }
+    
+    // Validate message type
+    if (type !== "user_message" && type !== "direction") {
+      return Response.json(
+        { error: "Invalid message type. Must be 'user_message' or 'direction'" },
+        { status: 400 },
+      );
+    }
+    
+    // Truncate and sanitize content
+    const sanitizedContent = sanitizeMessageContent(content.slice(0, MAX_MESSAGE_LENGTH));
+    
+    // Generate message ID
+    const messageId = `msg_${crypto.randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    
+    // Store message in memory
+    const messages = sessionMessages.get(sessionId) || [];
+    messages.push({
+      id: messageId,
+      content: sanitizedContent,
+      type,
+      timestamp,
+    });
+    // Enforce message cap
+    if (messages.length > MAX_SESSION_MESSAGES) {
+      messages.shift();
+    }
+    sessionMessages.set(sessionId, messages);
+
+    // Enforce global message cap — evict oldest messages across all sessions
+    let totalMessages = 0;
+    for (const msgs of sessionMessages.values()) {
+      totalMessages += msgs.length;
+    }
+    if (totalMessages > MAX_TOTAL_MESSAGES) {
+      let excess = totalMessages - MAX_TOTAL_MESSAGES;
+      // Remove oldest messages from all sessions, oldest first
+      for (const [sid, msgs] of sessionMessages) {
+        while (msgs.length > 0 && excess > 0) {
+          msgs.shift();
+          excess--;
+        }
+        if (msgs.length === 0) {
+          sessionMessages.delete(sid);
+        }
+        if (excess <= 0) break;
+      }
+    }
+    
+    // Log the message
+    console.log(`Message received for session ${sessionId}:`, {
+      messageId,
+      type,
+      contentLength: sanitizedContent.length,
+    });
+    
+    return Response.json(
+      { messageId, sessionId, status: "received" },
+      { status: 202 },
+    );
+  } catch (_e) {
+    return Response.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
 }
 
 /**
@@ -288,6 +538,16 @@ function handleWebSocketStream(req: Request): Response {
           continue;
         }
         
+        // Sanitize all string attribute values before sending
+        const sanitizedAttributes: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(span.attributes)) {
+          if (typeof value === "string") {
+            sanitizedAttributes[key] = sanitizeForTerminal(value);
+          } else {
+            sanitizedAttributes[key] = value;
+          }
+        }
+        
         const spanData = {
           traceId: spanContext.traceId,
           spanId: spanContext.spanId,
@@ -296,7 +556,7 @@ function handleWebSocketStream(req: Request): Response {
           kind: span.kind,
           startTime: span.startTime,
           endTime: span.endTime,
-          attributes: span.attributes,
+          attributes: sanitizedAttributes,
           status: span.status,
         };
         
@@ -346,6 +606,17 @@ function handler(req: Request): Response | Promise<Response> {
     // POST /sessions - Create a new session
     if (req.method === "POST" && url.pathname === "/sessions") {
       return handleCreateSession(req);
+    }
+
+    // GET /sessions - List all sessions
+    if (req.method === "GET" && url.pathname === "/sessions") {
+      return handleListSessions();
+    }
+
+    // POST /sessions/:id/messages - Send a message to a session
+    if (req.method === "POST" && url.pathname.match(/^\/sessions\/[^/]+\/messages$/)) {
+      const sessionId = url.pathname.split("/sessions/")[1].split("/messages")[0];
+      return handlePostMessage(req, sessionId);
     }
 
     // GET /sessions/:id - Get session by ID
