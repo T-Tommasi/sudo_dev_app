@@ -13,14 +13,19 @@ packages/tui/
 │   └── client_test.ts           # Client tests
 └── ink/
     ├── mod.ts                    # Re-exports App, Header
-    ├── app.tsx                   # Root Ink component
+    ├── app.tsx                   # Root Ink component, 5-tab layout
     ├── state/
     │   ├── mod.ts                # Re-exports store.ts
     │   ├── store.ts              # TuiStore, RingBuffer, alert engine
     │   └── store_test.ts         # 37 store test cases
     └── components/
-        ├── mod.ts                # Re-exports header.tsx
-        └── header.tsx            # Status bar component
+        ├── mod.ts                # Re-exports all components
+        ├── header.tsx            # Status bar component
+        ├── sidebar.tsx           # Sessions sidebar (Phase 2)
+        ├── stream.tsx            # Real-time span stream (Phase 2)
+        ├── metrics.tsx           # Metrics histogram panel (Phase 2)
+        ├── alerts.tsx            # Alerts panel (Phase 2)
+        └── filter.tsx            # Filter bar (Phase 2)
 ```
 
 ## Key Modules
@@ -131,12 +136,92 @@ Strips terminal-injection hazards from strings before rendering:
 opencode-glass │ session: {id|—} │ {●|○} {state} │ {HH:MM:SS} UTC
 ```
 
+### ink/components/sidebar.tsx — Sessions Sidebar (Phase 2)
+
+**`Sidebar` component**
+
+Displays a list of sessions fetched from `GET /sessions` with selection and span count.
+
+| Feature | Details |
+|---------|---------|
+| Fetch | `fetch("http://localhost:8080/sessions")` with Zod validation |
+| Keyboard | Up/Down arrows navigate, Enter activates session |
+| Display | Session ID (8 chars), status badge (10 chars, color-coded), goal (30 chars, truncated) |
+| Status colors | pending=yellow, active=green, completed=blue, failed=red |
+| Active indicator | Cyan highlight on currently active session |
+| Span count | Live count of spans belonging to each session |
+
+### ink/components/stream.tsx — Stream Panel (Phase 2)
+
+**`StreamPanel` component**
+
+Real-time scrolling span display with keyboard navigation and filtering.
+
+| Feature | Details |
+|---------|---------|
+| Display | Timestamp (HH:MM:SS), span name, 2-char tool abbrev, duration (ms), status |
+| Status codes | 1=OK (green), 2=ERROR (red), default=PENDING (yellow) |
+| Auto-scroll | Enabled by default; disabled on manual scroll, re-enabled at bottom |
+| Scroll keys | Up/Down (+1 line), PageUp/PageDown (+10 lines), Delete toggles |
+| Filtering | Filters by `activeFilters` (matches span name or tool name) |
+| Display limit | Last 100 spans |
+| Sanitization | All span fields sanitized for terminal (C0/C1, ANSI escapes) |
+
+### ink/components/metrics.tsx — Metrics Panel (Phase 2)
+
+**`Metrics` component**
+
+ASCII histograms for latency distribution and tool invocation counts.
+
+| Feature | Details |
+|---------|---------|
+| Latency buckets | <10ms, <50ms, <100ms, <100ms, <500ms, >=500ms |
+| Tool counts | Top 5 tools by invocation count |
+| Bar width | 30 characters (█ for filled, ░ for empty) |
+| Summary | Total spans, success (✓), error (✗) |
+| Toggle | Click header or Ctrl+M to collapse/expand |
+| Polling | 2 second interval |
+
+### ink/components/alerts.tsx — Alerts Panel (Phase 2)
+
+**`Alerts` component**
+
+Displays triggered alerts with flash animation and rule management.
+
+| Feature | Details |
+|---------|---------|
+| Alert display | Last 20 alerts, timestamp, formatted rule |
+| Flash animation | 500ms interval, unacknowledged alerts flash red |
+| Acknowledgment | `A` key acknowledges selected alert |
+| Rule toggle | `T` key toggles enabled state of selected rule |
+| Navigation | Up/Down arrows navigate alerts, Left/Right navigate rules |
+| Rule format | `field operator value` with terminal sanitization |
+| Indicators | ◉ = enabled, ✗ = disabled |
+
+### ink/components/filter.tsx — Filter Bar (Phase 2)
+
+**`FilterBar` component**
+
+Interactive filter chips with quick filters and add dialog.
+
+| Feature | Details |
+|---------|---------|
+| Filter chips | Removable via × button, keyboard selectable |
+| Quick filters | All, Errors (`status.code=2`), Tools (`has:tool.name`), LLM (`agent.type=llm`) |
+| Add filter | `+` or `A` key opens input dialog |
+| Dialog keys | Enter to add, Escape to cancel, Backspace/Delete to edit |
+| Remove | Delete/Backspace removes selected filter |
+| Navigation | Left/Right arrows move between filter chips |
+| Display | Cyan highlight on selected filter chip |
+
 ### ink/app.tsx — Root App
 
 - Initializes `TuiStore` via `useState` (singleton for app lifetime)
 - On mount: creates `WebSocketClient`, calls `connect()`, streams spans into store
 - On unmount: disconnects WebSocket, sets state to `disconnected`
-- Renders: `Header` + placeholder box ("Phase 1 — panels coming in Phase 2")
+- **Phase 2 layout:** Header + Sidebar + FilterBar + 5-tab panel area + collapsible bottom Metrics/Alerts strip
+- Tabs: Stream (1), Traces (2, Phase 3), Agent (3, Phase 4), Metrics (4), Alerts (5)
+- Keyboard: `1`-`5` switch tabs, `Ctrl+M` toggles metrics/alerts strip
 
 ## WebSocket Streaming Architecture
 

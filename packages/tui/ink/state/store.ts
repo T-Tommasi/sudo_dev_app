@@ -241,6 +241,14 @@ export class TuiStore {
     }
   }
 
+  toggleAlertRule(ruleId: string): void {
+    const idx = this.state.alertRules.findIndex((r) => r.id === ruleId);
+    if (idx === -1) return;
+    const updated = [...this.state.alertRules];
+    updated[idx] = { ...updated[idx], enabled: !updated[idx].enabled };
+    this.state.alertRules = updated;
+  }
+
   getState(): TuiState {
     return this.state;
   }

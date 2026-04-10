@@ -1,11 +1,28 @@
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 import { TuiStore } from "./state/store.ts";
 import { WebSocketClient } from "../ws/client.ts";
 import { Header } from "./components/header.tsx";
+import { Sidebar } from "./components/sidebar.tsx";
+import { StreamPanel } from "./components/stream.tsx";
+import { Metrics } from "./components/metrics.tsx";
+import { Alerts } from "./components/alerts.tsx";
+import { FilterBar } from "./components/filter.tsx";
+
+type TabId = "stream" | "traces" | "agent" | "metrics" | "alerts";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "stream", label: "STREAM" },
+  { id: "traces", label: "TRACES" },
+  { id: "agent", label: "AGENT" },
+  { id: "metrics", label: "METRICS" },
+  { id: "alerts", label: "ALERTS" },
+];
 
 export function App() {
   const [store] = useState(() => new TuiStore());
+  const [activeTab, setActiveTab] = useState<TabId>("stream");
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
 
   useEffect(() => {
     const ws = new WebSocketClient();
@@ -38,11 +55,78 @@ export function App() {
     };
   }, []);
 
+  useInput((input: string, key: { ctrl?: boolean }) => {
+    if (key.ctrl && (input === "m" || input === "M")) {
+      setMetricsExpanded(!metricsExpanded);
+    } else if (input === "1") {
+      setActiveTab("stream");
+    } else if (input === "2") {
+      setActiveTab("traces");
+    } else if (input === "3") {
+      setActiveTab("agent");
+    } else if (input === "4") {
+      setActiveTab("metrics");
+    } else if (input === "5") {
+      setActiveTab("alerts");
+    }
+  });
+
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexGrow={1}>
       <Header store={store} />
-      <Box flexDirection="column" padding={1}>
-        <Text>Phase 1 — panels coming in Phase 2</Text>
+
+      <Box flexDirection="row" flexGrow={1}>
+        <Sidebar store={store} />
+
+        <Box flexDirection="column" flexGrow={1} borderStyle="round" borderDim>
+          <FilterBar store={store} />
+
+          <Box flexDirection="row" paddingX={2} paddingTop={1}>
+            {TABS.map((tab) => (
+              <Box
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Text
+                  bold={activeTab === tab.id}
+                  color={activeTab === tab.id ? "cyan" : "white"}
+                >
+                  {activeTab === tab.id ? "[ " : "  "}
+                  {tab.label}
+                  {activeTab === tab.id ? " ]" : "  "}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+
+          <Box flexDirection="column" flexGrow={1} padding={1}>
+            {activeTab === "stream" && <StreamPanel store={store} />}
+            {activeTab === "traces" && (
+              <Box justifyContent="center" alignItems="center">
+                <Text dimColor>Coming in Phase 3</Text>
+              </Box>
+            )}
+            {activeTab === "agent" && (
+              <Box justifyContent="center" alignItems="center">
+                <Text dimColor>Coming in Phase 4</Text>
+              </Box>
+            )}
+            {activeTab === "metrics" && <Metrics store={store} />}
+            {activeTab === "alerts" && <Alerts store={store} />}
+          </Box>
+        </Box>
+      </Box>
+
+      <Box flexDirection="column">
+        <Text dimColor>
+          {metricsExpanded ? "▼" : "▶"} Metrics+Alerts (Ctrl+M to toggle)
+        </Text>
+        {metricsExpanded && (
+          <Box flexDirection="column" paddingTop={1}>
+            <Metrics store={store} />
+            <Alerts store={store} />
+          </Box>
+        )}
       </Box>
     </Box>
   );

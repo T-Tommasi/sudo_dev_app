@@ -7,17 +7,22 @@
     "jsr:@std/assert@0.217": "0.217.0",
     "jsr:@std/assert@0.217.0": "0.217.0",
     "jsr:@std/assert@1": "1.0.17",
+    "jsr:@std/assert@1.0.0": "1.0.0",
+    "jsr:@std/assert@1.0.0-rc.2": "1.0.0-rc.2",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/fmt@0.217": "0.217.0",
     "jsr:@std/fmt@1": "1.0.8",
     "jsr:@std/fs@*": "1.0.23",
     "jsr:@std/fs@1": "1.0.23",
+    "jsr:@std/internal@1": "1.0.12",
+    "jsr:@std/internal@^1.0.1": "1.0.12",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/path@*": "1.1.4",
     "jsr:@std/path@0.217": "0.217.0",
     "jsr:@std/path@0.217.0": "0.217.0",
     "jsr:@std/path@1": "1.1.4",
     "jsr:@std/path@^1.1.4": "1.1.4",
+    "jsr:@std/testing@0.225.3": "0.225.3",
     "jsr:@std/yaml@1": "1.0.12",
     "npm:@ai-sdk/anthropic@3": "3.0.66_zod@3.25.76",
     "npm:@ai-sdk/openai-compatible@*": "2.0.40_zod@3.25.76",
@@ -66,10 +71,22 @@
         "jsr:@std/fmt@0.217"
       ]
     },
+    "@std/assert@1.0.0-rc.2": {
+      "integrity": "0484eab1d76b55fca1c3beaff485a274e67dd3b9f065edcbe70030dfc0b964d3",
+      "dependencies": [
+        "jsr:@std/internal@1"
+      ]
+    },
+    "@std/assert@1.0.0": {
+      "integrity": "0e4f6d873f7f35e2a1e6194ceee39686c996b9e5d134948e644d35d4c4df2008",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.1"
+      ]
+    },
     "@std/assert@1.0.17": {
       "integrity": "df5ebfffe77c03b3fa1401e11c762cc8f603d51021c56c4d15a8c7ab45e90dbe",
       "dependencies": [
-        "jsr:@std/internal"
+        "jsr:@std/internal@^1.0.12"
       ]
     },
     "@std/encoding@1.0.10": {
@@ -84,7 +101,7 @@
     "@std/fs@1.0.23": {
       "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
       "dependencies": [
-        "jsr:@std/internal",
+        "jsr:@std/internal@^1.0.12",
         "jsr:@std/path@^1.1.4"
       ]
     },
@@ -100,7 +117,13 @@
     "@std/path@1.1.4": {
       "integrity": "1d2d43f39efb1b42f0b1882a25486647cb851481862dc7313390b2bb044314b5",
       "dependencies": [
-        "jsr:@std/internal"
+        "jsr:@std/internal@^1.0.12"
+      ]
+    },
+    "@std/testing@0.225.3": {
+      "integrity": "348c24d0479d44ab3dbb4f26170f242e19f24051b45935d4a9e7ca0ab7e37780",
+      "dependencies": [
+        "jsr:@std/assert@1.0.0-rc.2"
       ]
     },
     "@std/yaml@1.0.12": {
