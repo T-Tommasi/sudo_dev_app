@@ -16,6 +16,14 @@
     "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.25.0",
     "@opentelemetry/resources": "npm:@opentelemetry/resources@^1.25.0",
     "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.25.0",
-    "@opentelemetry/core": "npm:@opentelemetry/core@^1.25.0"
+    "@opentelemetry/core": "npm:@opentelemetry/core@^1.25.0",
+    "react": "npm:react@^18.2.0",
+    "react-dom": "npm:react-dom@^18.2.0",
+    "ink": "npm:ink@^4.4.0",
+    "ink-chart": "npm:@pppp606/ink-chart@^0.2.0",
+    "ink-ui": "npm:@inkjs/ui@^2.0.0",
+    "ink-table": "npm:ink-table@^3.0.0",
+    "ink-select-input": "npm:ink-select-input@^6.0.0",
+    "ink-text-input": "npm:ink-text-input@^6.0.0"
   }
 }

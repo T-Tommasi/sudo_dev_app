@@ -82,6 +82,7 @@ Sub-agents are domain-specialized execution units. Each sub-agent operates withi
 | Code review (post-implementation) | reviewer |
 | Documentation, PLAN.md, API docs | doc_writer |
 | Google Cloud CLI operations (gcloud, compute, run) | google_cli_agent |
+| Terminal UI (TUI) client | — (client package, not an agent) |
 
 **Responsibilities:**
 - Execute tasks within their domain boundary
@@ -256,7 +257,28 @@ The SDK package provides HTTP server infrastructure and client utilities:
 
 ### packages/tui
 
-The TUI package provides terminal-based interfaces for interacting with the platform. This package is designed for local development workflows and operator consoles.
+The TUI package provides a terminal-based operator command center for the opencode-glass platform. Built with Ink (React for terminals) on Deno, it connects to the platform's WebSocket stream to display live agent activity.
+
+| Path | Purpose |
+|------|---------|
+| `main.tsx` | Entry point — renders the Ink `<App />` component |
+| `mod.ts` | Package exports: version, TuiStore, RingBuffer, WebSocketClient |
+| `ws/client.ts` | WebSocket client with async generator interface, reconnection, queue |
+| `ink/app.tsx` | Root Ink component, WebSocket lifecycle |
+| `ink/state/store.ts` | TuiStore state container, RingBuffer, alert rule engine |
+| `ink/components/header.tsx` | Status bar with session ID, connection state, sanitized output |
+
+**Key Exports:**
+- `TuiStore` — Central state for spans, sessions, metrics, alerts
+- `RingBuffer<T>` — Fixed-size circular buffer
+- `WebSocketClient` — Async generator WebSocket client
+- `AlertRule` / `Alert` — Alerting types
+- `SpanData` / `SubscriptionFilter` — WebSocket message types
+
+**Running the TUI:**
+```bash
+deno run --allow-net --allow-env packages/tui/main.tsx
+```
 
 ---
 
