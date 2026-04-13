@@ -45,7 +45,8 @@ export function Chat({ store: _store, activeSessionId, connected }: Props) {
       setLastMessage({ question: inputValue, response: data.content ?? "" });
       setInputValue("");
     } catch (err) {
-      setLastMessage({ question: inputValue, response: `Error: ${err}` });
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      setLastMessage({ question: inputValue, response: `Error: ${errorMsg}` });
     } finally {
       setSending(false);
     }

@@ -1,1 +1,9 @@
 export { Header } from "./header.tsx";
+export { Sidebar } from "./sidebar.tsx";
+export { StreamPanel } from "./stream.tsx";
+export { TracesPanel } from "./traces.tsx";
+export { AgentActivityPanel } from "./agent.tsx";
+export { Metrics } from "./metrics.tsx";
+export { Alerts } from "./alerts.tsx";
+export { FilterBar } from "./filter.tsx";
+export { Chat } from "./chat.tsx";

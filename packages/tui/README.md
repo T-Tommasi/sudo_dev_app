@@ -49,9 +49,12 @@ packages/tui/
         ├── header.tsx      # Status bar with session/connection/time
         ├── sidebar.tsx     # Sessions sidebar (Phase 2)
         ├── stream.tsx      # Real-time span stream panel (Phase 2)
+        ├── traces.tsx      # Traces panel with drill-down (Phase 3)
+        ├── agent.tsx       # Agent activity panel (Phase 3)
         ├── metrics.tsx     # Metrics histogram panel (Phase 2)
         ├── alerts.tsx      # Alerts panel with rule management (Phase 2)
-        └── filter.tsx      # Filter bar with quick filters (Phase 2)
+        ├── filter.tsx      # Filter bar with quick filters (Phase 2)
+        └── chat.tsx        # Chat footer for session messaging (Phase 3)
 ```
 
 ## Features (Phase 2)
@@ -92,8 +95,34 @@ packages/tui/
 - Keyboard: Delete/Backspace removes selected filter, arrows navigate
 - `+` or `A` key opens add filter input
 
+## Features (Phase 3)
+
+### Traces Panel (`ink/components/traces.tsx`)
+- Span list with traceId (truncated), name, timestamp, duration, status
+- Drill-down inspection: press Enter to view full span details
+- Detail view shows: traceId, spanId, parentId, name, kind, start/endTime, duration, status, attributes
+- Keyboard: Up/Down navigate, Enter expand, Escape collapse, PageUp/PageDown jump
+- Filter integration: applies active filters to show matching spans
+- Last 100 spans retained for display
+- 500ms polling interval for store updates
+- 17 test cases covering formatTime, getStatusDisplay, getKindDisplay, truncateSpanId, filtering logic
+
+### Agent Activity Panel (`ink/components/agent.tsx`)
+- Displays agent activity states and transitions
+- Agent status indicators with color coding
+- Integration with session state from TuiStore
+
+### Chat Footer (`ink/components/chat.tsx`)
+- Session messaging via REST API (`POST /sessions/:id/messages`)
+- Input field with Enter to send, Escape to clear
+- Last message display: sent question → received response
+- Connection status indicator (green=connected, red=offline)
+- Requires active session to send messages
+- Error disclosure: displays error message on failure
+
 ### App Shell (`ink/app.tsx`)
-- 5-tab layout: Stream, Traces (Phase 3), Agent (Phase 4), Metrics, Alerts
+- 5-tab layout: Stream, Traces (Phase 3), Agent (Phase 3), Metrics, Alerts
+- Chat footer integrated below main content area
 - Keyboard shortcuts: `1`-`5` for tabs, `Ctrl+M` toggles metrics+alerts strip
 - Collapsible bottom strip showing metrics and alerts panels
 - Sidebar + main content area with tab navigation
@@ -147,7 +176,7 @@ export * from "./ws/mod.ts";
 
 // ink/mod.ts
 export { App } from "./app.tsx";
-export { Header } from "./components/mod.ts";
+export { Header, Sidebar, StreamPanel, TracesPanel, AgentActivityPanel, Metrics, Alerts, FilterBar, Chat } from "./components/mod.ts";
 
 // ws/mod.ts
 export * from "./client.ts";

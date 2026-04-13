@@ -6,9 +6,11 @@ import { Header } from "./components/header.tsx";
 import { Sidebar } from "./components/sidebar.tsx";
 import { StreamPanel } from "./components/stream.tsx";
 import { TracesPanel } from "./components/traces.tsx";
+import { AgentActivityPanel } from "./components/agent.tsx";
 import { Metrics } from "./components/metrics.tsx";
 import { Alerts } from "./components/alerts.tsx";
 import { FilterBar } from "./components/filter.tsx";
+import { Chat } from "./components/chat.tsx";
 
 type TabId = "stream" | "traces" | "agent" | "metrics" | "alerts";
 
@@ -103,11 +105,7 @@ export function App() {
           <Box flexDirection="column" flexGrow={1} padding={1}>
             {activeTab === "stream" && <StreamPanel store={store} />}
             {activeTab === "traces" && <TracesPanel store={store} />}
-            {activeTab === "agent" && (
-              <Box justifyContent="center" alignItems="center">
-                <Text dimColor>Coming in Phase 4</Text>
-              </Box>
-            )}
+            {activeTab === "agent" && <AgentActivityPanel store={store} />}
             {activeTab === "metrics" && <Metrics store={store} />}
             {activeTab === "alerts" && <Alerts store={store} />}
           </Box>
@@ -125,6 +123,12 @@ export function App() {
           </Box>
         )}
       </Box>
+
+      <Chat
+        store={store}
+        activeSessionId={store.getState().activeSessionId}
+        connected={store.getState().connectionState === "connected"}
+      />
     </Box>
   );
 }
