@@ -5,6 +5,7 @@ import { WebSocketClient } from "../ws/client.ts";
 import { Header } from "./components/header.tsx";
 import { Sidebar } from "./components/sidebar.tsx";
 import { StreamPanel } from "./components/stream.tsx";
+import { TracesPanel } from "./components/traces.tsx";
 import { Metrics } from "./components/metrics.tsx";
 import { Alerts } from "./components/alerts.tsx";
 import { FilterBar } from "./components/filter.tsx";
@@ -101,11 +102,7 @@ export function App() {
 
           <Box flexDirection="column" flexGrow={1} padding={1}>
             {activeTab === "stream" && <StreamPanel store={store} />}
-            {activeTab === "traces" && (
-              <Box justifyContent="center" alignItems="center">
-                <Text dimColor>Coming in Phase 3</Text>
-              </Box>
-            )}
+            {activeTab === "traces" && <TracesPanel store={store} />}
             {activeTab === "agent" && (
               <Box justifyContent="center" alignItems="center">
                 <Text dimColor>Coming in Phase 4</Text>
